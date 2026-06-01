@@ -698,12 +698,27 @@ textarea.modal-input {
     gap: 1.5rem;
     padding: 1.5rem;
   }
+  /* Sección de fechas: apilar verticalmente */
   .filter-bar .flex.items-center.gap-6 {
     flex-direction: column;
     align-items: stretch;
     gap: 1rem;
   }
   .premium-input { width: 100%; }
+
+  /* Selector Pendientes/Procesados a ancho completo */
+  .segmented-control { width: 100%; height: 54px; }
+  .segmented-control button { padding: 0 0.75rem; font-size: 0.9rem; }
+
+  /* Botones de acción (Limpiar / Recargar / Consultar): envolver y repartir */
+  .filter-bar .flex.gap-3.items-end {
+    flex-wrap: wrap;
+  }
+  .filter-bar .flex.gap-3.items-end > button {
+    flex: 1 1 auto;
+    min-width: 0;
+    justify-content: center;
+  }
 }
 
 @media (max-width: 768px) {
