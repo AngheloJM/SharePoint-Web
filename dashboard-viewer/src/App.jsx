@@ -25,6 +25,7 @@ const App = () => {
   // Pagination & Local Search
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
+  const [listFilter, setListFilter] = useState('todos'); // 'todos' | 'lista1' | 'lista2'
   const pageSize = 100;
 
   // Timer & Progress
@@ -140,15 +141,24 @@ const App = () => {
   // Local filtering & Sorting & Stats
   const { filteredAndSortedItems, stats } = useMemo(() => {
     const result = items.filter(item => {
-      // Robust null checks for item fields
+      // Filtro por lista (Lista 1 / Lista 2 / Todas)
+      const listStr = String(item?.list || "");
+      const matchesList =
+        listFilter === 'todos' ||
+        (listFilter === 'lista1' && listStr.includes('Lista 1')) ||
+        (listFilter === 'lista2' && listStr.includes('Lista 2'));
+      if (!matchesList) return false;
+
+      // Búsqueda local por ID, línea/celular o título
+      const search = searchTerm.toLowerCase().trim();
       const title = String(item?.title || "").toLowerCase();
       const id = String(item?.id || "").toLowerCase();
-      const search = searchTerm.toLowerCase();
+      const phone = String(item?.phone_number || "").toLowerCase();
 
-      const matchesSearch = title.includes(search) || id.includes(search);
-      
+      const matchesSearch = !search || title.includes(search) || id.includes(search) || phone.includes(search);
+
       if (!item?.created) return matchesSearch;
-      
+
       try {
         const itemDate = new Date(item.created).toISOString().split('T')[0];
         const matchesFrom = !fromDate || itemDate >= fromDate;
@@ -182,12 +192,13 @@ const App = () => {
     }
 
     return { filteredAndSortedItems: result, stats: { list1: list1Count, list2: list2Count, total: items.length } };
-  }, [items, searchTerm, fromDate, toDate, sortConfig]);
+  }, [items, searchTerm, listFilter, fromDate, toDate, sortConfig]);
 
   const clearFilters = () => {
     setFromDate('');
     setToDate('');
     setSearchTerm('');
+    setListFilter('todos');
     setSortConfig({ key: 'created', direction: 'desc' });
     setCurrentPage(1);
   };
@@ -535,13 +546,40 @@ const App = () => {
              {hasSearched && (
                <div className="premium-input-container">
                  <Search size={14} />
-                 <input 
-                   type="text" 
-                   placeholder="Buscar en resultados..."
+                 <input
+                   type="text"
+                   placeholder="Buscar por ID, línea o título..."
                    value={searchTerm}
                    onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                    className="premium-input !w-[300px] !py-2 !text-xs"
                  />
+               </div>
+             )}
+
+             {/* Filtro por Lista */}
+             {hasSearched && (
+               <div className="flex items-center gap-2">
+                 {[
+                   { key: 'todos', label: 'Todas' },
+                   { key: 'lista1', label: 'Lista 1' },
+                   { key: 'lista2', label: 'Lista 2' },
+                 ].map((opt) => (
+                   <button
+                     key={opt.key}
+                     onClick={() => { setListFilter(opt.key); setCurrentPage(1); }}
+                     className="px-4 py-1.5 rounded-full text-xs font-bold"
+                     style={{
+                       background: listFilter === opt.key ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
+                       color: listFilter === opt.key ? '#fff' : 'var(--text-dim)',
+                       border: '1px solid var(--border)',
+                       cursor: 'pointer',
+                       transition: 'all 0.2s ease',
+                       whiteSpace: 'nowrap',
+                     }}
+                   >
+                     {opt.label}
+                   </button>
+                 ))}
                </div>
              )}
           </div>
