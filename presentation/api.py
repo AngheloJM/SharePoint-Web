@@ -1,15 +1,19 @@
 import os
 from datetime import datetime, timedelta
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from fastapi import FastAPI, Depends, Query, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from pydantic import BaseModel
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 import uvicorn
 
 from infrastructure.sharepoint.graph_sharepoint_reader import GraphSharePointReader
+from infrastructure.sharepoint.graph_sharepoint_writer import GraphSharePointWriter
 from application.use_cases.get_filtered_items import GetFilteredItemsUseCase
+from application.use_cases.update_item import UpdateItemUseCase, ValidacionError
+from domain.ports.sharepoint_writer import SharePointPermissionError
 
 # Security Configuration
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "super-secret-key-for-dev")
@@ -70,6 +74,12 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
 def get_reader():
     return GraphSharePointReader()
 
+def get_writer():
+    return GraphSharePointWriter()
+
+class UpdateItemBody(BaseModel):
+    fields: Dict[str, Any]
+
 @app.get("/items", dependencies=[Depends(get_current_user)])
 async def get_items(
     status: Optional[str] = Query(None, description="Filter by status: pendiente or procesado"),
@@ -112,6 +122,24 @@ async def get_items(
     except Exception as e:
         print(f"🔥 Error en API: {e}")
         from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.patch("/items/{item_id}", dependencies=[Depends(get_current_user)])
+async def update_item(
+    item_id: str,
+    body: UpdateItemBody,
+    writer: GraphSharePointWriter = Depends(get_writer),
+):
+    try:
+        use_case = UpdateItemUseCase(writer)
+        resultado = use_case.execute(item_id=item_id, fields=body.fields)
+        return {"id": item_id, "fields": resultado.get("fields", resultado)}
+    except ValidacionError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except SharePointPermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except Exception as e:
+        print(f"🔥 Error al actualizar item {item_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/health")

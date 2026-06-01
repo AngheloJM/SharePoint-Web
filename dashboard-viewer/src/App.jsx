@@ -1,5 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { RefreshCw, Clock, Database, ChevronRight, LayoutDashboard, ListTodo, Calendar, Filter, HardDrive, Search, ArrowUp, ArrowDown, LogOut, Lock, User, ShieldCheck } from 'lucide-react';
+import { RefreshCw, Clock, Database, ChevronRight, LayoutDashboard, ListTodo, Calendar, Filter, HardDrive, Search, ArrowUp, ArrowDown, LogOut, Lock, User, ShieldCheck, Pencil, X, Save, AlertTriangle } from 'lucide-react';
+
+// Valores válidos (confirmados contra las columnas de SharePoint vía Graph)
+const BAJA_OPCIONES = ['Baja Procesada', 'Baja Observada', 'Baja Desestimada', 'Baja Realizada por Otro Canal'];
+const DEUDA_OPCIONES = ['Sin Deuda', 'Con Deuda'];
 
 const App = () => {
   const [items, setItems] = useState([]);
@@ -26,6 +30,12 @@ const App = () => {
   // Timer & Progress
   const [elapsedTime, setElapsedTime] = useState(0);
   const [progress, setProgress] = useState(0);
+
+  // Edición (write-back a SharePoint)
+  const [editingItem, setEditingItem] = useState(null);
+  const [editForm, setEditForm] = useState({ eBajaRealizada: '', eDeudaPendiente: '', Observaciones: '' });
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState(null);
 
   // API Configuration
   const BASE_URL = import.meta.env.VITE_API_URL || '';
@@ -180,6 +190,69 @@ const App = () => {
     setSearchTerm('');
     setSortConfig({ key: 'created', direction: 'desc' });
     setCurrentPage(1);
+  };
+
+  // Solo Lista 1 (Gestión) es editable
+  const isEditable = (item) => String(item?.list || '').includes('Lista 1');
+
+  const openEditModal = (item) => {
+    const f = item?.fields || {};
+    setEditError(null);
+    setEditForm({
+      eBajaRealizada: f.eBajaRealizada || '',
+      eDeudaPendiente: f.eDeudaPendiente || '',
+      Observaciones: f.Observaciones || '',
+    });
+    setEditingItem(item);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingItem) return;
+    setSavingEdit(true);
+    setEditError(null);
+
+    // Solo enviar los campos que cambiaron respecto al valor original
+    const orig = editingItem.fields || {};
+    const fields = {};
+    ['eBajaRealizada', 'eDeudaPendiente', 'Observaciones'].forEach((k) => {
+      const nuevo = editForm[k] ?? '';
+      const anterior = orig[k] ?? '';
+      if (nuevo !== anterior) fields[k] = nuevo;
+    });
+
+    if (Object.keys(fields).length === 0) {
+      setEditError('No hay cambios para guardar.');
+      setSavingEdit(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${BASE_URL}/items/${encodeURIComponent(editingItem.id)}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ fields }),
+      });
+
+      if (response.status === 401) {
+        handleLogout();
+        throw new Error('Sesión expirada. Por favor ingresa de nuevo.');
+      }
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.detail || 'No se pudo guardar el cambio.');
+      }
+
+      setEditingItem(null);
+      await fetchItems(true); // refrescar datos frescos
+    } catch (err) {
+      setEditError(err.message);
+    } finally {
+      setSavingEdit(false);
+    }
   };
 
   // Pagination Logic
@@ -576,9 +649,23 @@ const App = () => {
                     </span>
                   </td>
                   <td className="text-right whitespace-nowrap">
-                    <button className="table-icon-btn w-8 h-8 hover:bg-primary/20 rounded-lg transition-all text-text-dark hover:text-primary ml-auto flex-center">
-                      <ChevronRight size={16} />
-                    </button>
+                    {isEditable(item) ? (
+                      <button
+                        onClick={() => openEditModal(item)}
+                        title="Editar gestión"
+                        className="table-icon-btn w-8 h-8 hover:bg-primary/20 rounded-lg transition-all text-text-dark hover:text-primary ml-auto flex-center"
+                      >
+                        <Pencil size={15} />
+                      </button>
+                    ) : (
+                      <button
+                        disabled
+                        title="Solo las gestiones de Lista 1 son editables"
+                        className="table-icon-btn w-8 h-8 rounded-lg text-text-dark/30 ml-auto flex-center cursor-not-allowed"
+                      >
+                        <ChevronRight size={16} />
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -633,6 +720,120 @@ const App = () => {
           </div>
         )}
       </div>
+
+      {/* Modal de Edición de Gestión */}
+      {editingItem && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm animate-in"
+          onClick={() => !savingEdit && setEditingItem(null)}
+        >
+          <div
+            className="glass w-full max-w-lg p-10 relative overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Encabezado */}
+            <div className="flex justify-between items-start mb-8">
+              <div>
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <Pencil className="text-primary w-4 h-4" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-white">Editar Gestión</h2>
+                </div>
+                <p className="text-text-dim text-xs">
+                  ID {(editingItem?.id?.split?.(',')?.pop?.()) || editingItem?.id} · Celular {editingItem?.phone_number || 'N/A'}
+                </p>
+              </div>
+              <button
+                onClick={() => !savingEdit && setEditingItem(null)}
+                className="w-10 h-10 glass glass-interactive rounded-full flex-center text-text-dark hover:text-white transition-all"
+                title="Cerrar"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Campos */}
+            <div className="space-y-6">
+              <div className="date-input-group">
+                <label>Baja Realizada</label>
+                <div className="premium-input-container">
+                  <select
+                    value={editForm.eBajaRealizada}
+                    onChange={(e) => setEditForm({ ...editForm, eBajaRealizada: e.target.value })}
+                    className="premium-input cursor-pointer bg-transparent"
+                  >
+                    <option value="">— Sin definir —</option>
+                    {BAJA_OPCIONES.map((o) => (
+                      <option key={o} value={o}>{o}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="date-input-group">
+                <label>Deuda Pendiente</label>
+                <div className="premium-input-container">
+                  <select
+                    value={editForm.eDeudaPendiente}
+                    onChange={(e) => setEditForm({ ...editForm, eDeudaPendiente: e.target.value })}
+                    className="premium-input cursor-pointer bg-transparent"
+                  >
+                    <option value="">— Sin definir —</option>
+                    {DEUDA_OPCIONES.map((o) => (
+                      <option key={o} value={o}>{o}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="date-input-group">
+                <label>Observaciones</label>
+                <textarea
+                  value={editForm.Observaciones}
+                  onChange={(e) => setEditForm({ ...editForm, Observaciones: e.target.value })}
+                  rows={3}
+                  placeholder="Notas, motivo, deuda, errores u otra observación de la línea..."
+                  className="premium-input w-full !py-3 resize-none"
+                />
+              </div>
+            </div>
+
+            {/* Error */}
+            {editError && (
+              <div className="mt-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-xs flex items-center gap-3">
+                <AlertTriangle size={16} className="shrink-0" />
+                {editError}
+              </div>
+            )}
+
+            {/* Acciones */}
+            <div className="flex justify-end gap-3 mt-8">
+              <button
+                onClick={() => setEditingItem(null)}
+                disabled={savingEdit}
+                className="btn-secondary h-12 px-6 disabled:opacity-40"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                disabled={savingEdit}
+                className="btn-primary h-12 px-8 min-w-[160px]"
+              >
+                {savingEdit ? (
+                  <RefreshCw className="animate-spin w-5 h-5" />
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    <span className="font-bold">Guardar</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Footer */}
       <footer className="mt-16 py-8 border-t border-border text-center animate-in">
