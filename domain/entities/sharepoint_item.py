@@ -69,26 +69,68 @@ class SharePointItem:
                 return None
         return None
 
+    # Campos del flujo de regularización requeridos para que una línea candidata
+    # esté "bien cargada" (lista para RPA). (campo_interno, display, valor_esperado)
+    CAMPOS_REGULARIZACION = (
+        ("eFormularioPendiente", "Formulario Pendiente", "Formulario Regularizado"),
+        ("eDeudaPendiente", "Deuda Pendiente", "Sin Deuda"),
+        ("eRegularizadoCompleto", "Regularizado Completo", "Se deriva para RPA"),
+    )
+
+    def es_candidata_baja(self) -> bool:
+        """Línea de Lista 1 que entró al flujo de baja/migración (aún sin baja realizada)."""
+        if self.source_list != "gestion_baja":
+            return False
+        f = self.raw_fields
+        linea = f.get("nLineaCodigoHogar")
+        return (
+            f.get("eServicio") in ("Móvil", "Móvil B2B") and
+            f.get("eRetencionEfectiva") == "NO" and
+            f.get("eTipoGestion") == "Se deriva para Baja" and
+            # En Graph un texto vacío puede llegar como "" o ausente; cubrimos ambos.
+            f.get("eBajaRealizada") in (None, "") and
+            linea is not None and str(linea).strip().isdigit()
+        )
+
+    def campos_faltantes(self) -> list:
+        """Campos del flujo de regularización que NO cumplen el valor esperado."""
+        f = self.raw_fields
+        faltan = []
+        for campo, display, esperado in self.CAMPOS_REGULARIZACION:
+            actual = f.get(campo)
+            if actual != esperado:
+                faltan.append({
+                    "campo": campo,
+                    "display": display,
+                    "esperado": esperado,
+                    "actual": actual if actual not in (None, "") else "(vacío)",
+                })
+        return faltan
+
+    def es_mal_cargada(self) -> bool:
+        """Candidata a baja a la que le falta completar el flujo de regularización."""
+        return self.es_candidata_baja() and len(self.campos_faltantes()) > 0
+
+    def diagnostico(self) -> dict:
+        """Estado de la línea y, si está mal cargada, los campos que no cumplen."""
+        if self.es_pendiente():
+            estado = "Pendiente"
+        elif self.es_procesado():
+            estado = "Procesado"
+        elif self.es_mal_cargada():
+            estado = "Mal cargada"
+        else:
+            estado = "Otro"
+        return {
+            "estado": estado,
+            "faltantes": self.campos_faltantes() if estado == "Mal cargada" else [],
+        }
+
     def es_pendiente(self) -> bool:
         fields = self.raw_fields
         if self.source_list == "gestion_baja":
-            # Réplica exacta de la lógica de filtrado de script_lista1.py.
-            # La línea (nLineaCodigoHogar) debe existir y ser numérica.
-            linea = fields.get("nLineaCodigoHogar")
-            if not (linea is not None and str(linea).strip().isdigit()):
-                return False
-
-            return (
-                fields.get("eServicio") in ("Móvil", "Móvil B2B") and
-                fields.get("eRetencionEfectiva") == "NO" and
-                fields.get("eTipoGestion") == "Se deriva para Baja" and
-                # El script exige eBajaRealizada is None; en Graph un texto vacío
-                # puede llegar como "" o ausente, así que cubrimos ambos.
-                fields.get("eBajaRealizada") in (None, "") and
-                fields.get("eFormularioPendiente") == "Formulario Regularizado" and
-                fields.get("eDeudaPendiente") == "Sin Deuda" and
-                fields.get("eRegularizadoCompleto") == "Se deriva para RPA"
-            )
+            # Candidata a baja + flujo de regularización completo (= lógica de script_lista1.py)
+            return self.es_candidata_baja() and len(self.campos_faltantes()) == 0
         elif self.source_list == "migracion_post_pre":
             title = fields.get("Title")
             return (

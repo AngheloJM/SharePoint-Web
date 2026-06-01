@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { RefreshCw, Clock, Database, ChevronRight, LayoutDashboard, ListTodo, Calendar, Filter, HardDrive, Search, ArrowUp, ArrowDown, LogOut, Lock, User, ShieldCheck, Pencil, X, Save, AlertTriangle } from 'lucide-react';
+import { RefreshCw, Clock, Database, ChevronRight, LayoutDashboard, ListTodo, Calendar, Filter, HardDrive, Search, ArrowUp, ArrowDown, LogOut, Lock, User, ShieldCheck, Pencil, X, Save, AlertTriangle, FileSearch, CheckCircle2 } from 'lucide-react';
 
 // Valores válidos (confirmados contra las columnas de SharePoint vía Graph)
 const BAJA_OPCIONES = ['Baja Procesada', 'Baja Observada', 'Baja Desestimada', 'Baja Realizada por Otro Canal'];
@@ -37,6 +37,14 @@ const App = () => {
   const [editForm, setEditForm] = useState({ eBajaRealizada: '', eDeudaPendiente: '', Observaciones: '' });
   const [savingEdit, setSavingEdit] = useState(false);
   const [editError, setEditError] = useState(null);
+
+  // Diagnóstico de línea (búsqueda por ID o línea)
+  const [showDiag, setShowDiag] = useState(false);
+  const [diagQuery, setDiagQuery] = useState('');
+  const [diagResults, setDiagResults] = useState([]);
+  const [diagLoading, setDiagLoading] = useState(false);
+  const [diagError, setDiagError] = useState(null);
+  const [diagSearched, setDiagSearched] = useState(false);
 
   // API Configuration
   const BASE_URL = import.meta.env.VITE_API_URL || '';
@@ -266,6 +274,42 @@ const App = () => {
     }
   };
 
+  const handleDiagnostico = async (e) => {
+    e?.preventDefault?.();
+    const q = diagQuery.trim();
+    if (!q) return;
+    setDiagLoading(true);
+    setDiagError(null);
+    setDiagSearched(true);
+    try {
+      const response = await fetch(`${BASE_URL}/diagnostico?q=${encodeURIComponent(q)}`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (response.status === 401) {
+        handleLogout();
+        throw new Error('Sesión expirada. Por favor ingresa de nuevo.');
+      }
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.detail || 'Error al consultar el diagnóstico.');
+      }
+      setDiagResults(await response.json());
+    } catch (err) {
+      setDiagError(err.message);
+      setDiagResults([]);
+    } finally {
+      setDiagLoading(false);
+    }
+  };
+
+  const openDiag = () => {
+    setShowDiag(true);
+    setDiagQuery('');
+    setDiagResults([]);
+    setDiagError(null);
+    setDiagSearched(false);
+  };
+
   // Pagination Logic
   const totalPages = Math.ceil(filteredAndSortedItems.length / pageSize);
   const paginatedItems = filteredAndSortedItems.slice(
@@ -377,7 +421,16 @@ const App = () => {
              </div>
           </div>
           
-          <button 
+          <button
+            onClick={openDiag}
+            className="btn-secondary h-12 px-6"
+            title="Buscar una línea por ID o número y ver su estado"
+          >
+            <FileSearch className="w-4 h-4" />
+            <span>Diagnóstico</span>
+          </button>
+
+          <button
             onClick={handleLogout}
             className="w-12 h-12 glass glass-interactive rounded-full flex-center text-red-400 hover:text-white hover:bg-red-500 transition-all border border-red-500/30 group"
             title="Cerrar Sesión"
@@ -864,6 +917,115 @@ const App = () => {
                   </>
                 )}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Diagnóstico de Línea */}
+      {showDiag && (
+        <div className="modal-overlay" onClick={() => setShowDiag(false)}>
+          <div className="glass modal-card animate-in" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="p-2 bg-primary rounded-lg flex-center">
+                    <FileSearch size={16} className="text-white" />
+                  </div>
+                  <h2 className="modal-title">Diagnóstico de Línea</h2>
+                </div>
+                <p className="text-text-dim text-xs">
+                  Busca por ID de SharePoint o número de línea para ver su estado.
+                </p>
+              </div>
+              <button onClick={() => setShowDiag(false)} className="modal-close" title="Cerrar">
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Buscador */}
+            <form onSubmit={handleDiagnostico} className="flex items-center gap-3">
+              <input
+                type="text"
+                autoFocus
+                placeholder="Ej: 133274 o 77956139"
+                value={diagQuery}
+                onChange={(e) => setDiagQuery(e.target.value)}
+                className="modal-input"
+              />
+              <button type="submit" className="btn-primary px-6" disabled={diagLoading}>
+                {diagLoading ? <RefreshCw className="animate-spin w-5 h-5" /> : <Search size={16} />}
+              </button>
+            </form>
+
+            {diagError && (
+              <div className="modal-error">
+                <AlertTriangle size={16} />
+                {diagError}
+              </div>
+            )}
+
+            {/* Resultados */}
+            <div className="mt-6 space-y-6">
+              {diagSearched && !diagLoading && diagResults.length === 0 && !diagError && (
+                <div className="text-center text-text-dim text-sm py-8">
+                  No se encontró ninguna línea con ese ID o número.
+                </div>
+              )}
+
+              {diagResults.map((r) => {
+                const est = String(r.estado || '');
+                const color =
+                  est === 'Pendiente' ? '#fb7185'
+                  : est === 'Procesado' ? '#34d399'
+                  : est === 'Mal cargada' ? '#fbbf24'
+                  : '#94a3b8';
+                return (
+                  <div key={r.id} className="glass p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <div className="text-white font-bold text-sm">ID {r.id}</div>
+                        <div className="text-[11px] text-text-dark font-mono mt-0.5">
+                          Línea: {r.phone_number || 'N/A'} · {r.tipo_baja || 'N/A'}
+                        </div>
+                      </div>
+                      <span
+                        className="px-4 py-1.5 rounded-full text-xs font-bold"
+                        style={{ background: `${color}22`, color, border: `1px solid ${color}44`, whiteSpace: 'nowrap' }}
+                      >
+                        {est}
+                      </span>
+                    </div>
+
+                    {r.faltantes && r.faltantes.length > 0 ? (
+                      <div>
+                        <div className="text-[10px] uppercase font-bold text-text-dark tracking-wider mb-3">
+                          Campos que no cumplen
+                        </div>
+                        <div className="space-y-2">
+                          {r.faltantes.map((f) => (
+                            <div key={f.campo} className="flex items-start gap-3 text-xs">
+                              <AlertTriangle size={14} style={{ color: '#fbbf24', flexShrink: 0, marginTop: '2px' }} />
+                              <div>
+                                <span className="text-white font-semibold">{f.display}</span>
+                                <span className="text-text-dim"> — esperado: </span>
+                                <span className="text-accent">"{f.esperado}"</span>
+                                <span className="text-text-dim"> · actual: </span>
+                                <span style={{ color: '#fb7185' }}>{f.actual}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-xs text-accent">
+                        <CheckCircle2 size={14} />
+                        Todos los campos del flujo están correctos.
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>

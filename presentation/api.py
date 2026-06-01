@@ -13,6 +13,7 @@ from infrastructure.sharepoint.graph_sharepoint_reader import GraphSharePointRea
 from infrastructure.sharepoint.graph_sharepoint_writer import GraphSharePointWriter
 from application.use_cases.get_filtered_items import GetFilteredItemsUseCase
 from application.use_cases.update_item import UpdateItemUseCase, ValidacionError
+from application.use_cases.diagnosticar_linea import DiagnosticarUseCase
 from domain.ports.sharepoint_writer import SharePointPermissionError
 
 # Security Configuration
@@ -140,6 +141,29 @@ async def update_item(
         raise HTTPException(status_code=403, detail=str(e))
     except Exception as e:
         print(f"🔥 Error al actualizar item {item_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/diagnostico", dependencies=[Depends(get_current_user)])
+async def diagnostico(
+    q: str = Query(..., description="ID de SharePoint o número de línea a inspeccionar"),
+    reader: GraphSharePointReader = Depends(get_reader),
+):
+    try:
+        use_case = DiagnosticarUseCase(reader)
+        items = use_case.execute(q)
+        return [
+            {
+                "id": item.id,
+                "title": item.title,
+                "phone_number": item.phone_number,
+                "tipo_baja": item.tipo_baja_display,
+                "created": item.fecha_creacion.isoformat() if item.fecha_creacion else None,
+                **item.diagnostico(),
+            }
+            for item in items
+        ]
+    except Exception as e:
+        print(f"🔥 Error en diagnóstico ({q}): {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/health")

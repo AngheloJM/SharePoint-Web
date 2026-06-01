@@ -1,6 +1,6 @@
 import os
 import requests
-from typing import List
+from typing import List, Optional
 from dotenv import load_dotenv
 
 from domain.entities.sharepoint_item import SharePointItem
@@ -92,3 +92,32 @@ class GraphSharePointReader(SharePointReader):
 
         print(f"✅ {source_name}: {len(items)} recuperados")
         return items
+
+    def get_item_by_id(
+        self,
+        list_id: str,
+        source_name: str,
+        item_id: str,
+    ) -> Optional[SharePointItem]:
+        token = get_access_token()
+        site_id = os.getenv("SP_SITE_ID")
+        url = (
+            f"https://graph.microsoft.com/v1.0/"
+            f"sites/{site_id}/lists/{list_id}/items/{item_id}?expand=fields"
+        )
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/json",
+        }
+        response = requests.get(url, headers=headers, timeout=30)
+        if response.status_code == 404:
+            return None
+        response.raise_for_status()
+        item = response.json()
+        fields = item["fields"]
+        return SharePointItem(
+            id=item["id"],
+            title=str(fields.get("Title", "")).strip(),
+            raw_fields=fields,
+            source_list=source_name,
+        )
