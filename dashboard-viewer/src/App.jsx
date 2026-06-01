@@ -1,13 +1,34 @@
-import React, { useState, useMemo } from 'react';
-import { RefreshCw, Clock, Database, ChevronRight, LayoutDashboard, ListTodo, Calendar, Filter, HardDrive, Search, ArrowUp, ArrowDown, LogOut, Lock, User, ShieldCheck, Pencil, X, Save, AlertTriangle, FileSearch, CheckCircle2 } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { RefreshCw, Clock, Database, ChevronRight, LayoutDashboard, ListTodo, Calendar, Filter, HardDrive, Search, ArrowUp, ArrowDown, LogOut, Lock, User, ShieldCheck, Pencil, X, Save, AlertTriangle, FileSearch, CheckCircle2, Sun, Moon } from 'lucide-react';
 
 // Valores válidos (confirmados contra las columnas de SharePoint vía Graph)
 const BAJA_OPCIONES = ['Baja Procesada', 'Baja Observada', 'Baja Desestimada', 'Baja Realizada por Otro Canal'];
 const DEUDA_OPCIONES = ['Sin Deuda', 'Con Deuda'];
 
+const getInitialTheme = () => {
+  const saved = localStorage.getItem('theme');
+  if (saved === 'light' || saved === 'dark') return saved;
+  // Sin preferencia guardada: seguir el tema del sistema
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  return 'dark';
+};
+
 const App = () => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  // Tema (claro / oscuro)
+  const [theme, setTheme] = useState(getInitialTheme);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
+
   const [error, setError] = useState(null);
   const [hasSearched, setHasSearched] = useState(false);
   
@@ -325,7 +346,7 @@ const App = () => {
         
         <div className="glass p-16 w-full max-w-md animate-in relative overflow-hidden mx-auto">
           <div className="flex-center flex-col mb-12">
-            <div className="w-20 h-20 bg-primary/20 rounded-3xl flex-center mb-6 border border-primary/30 shadow-[0_0_20px_rgba(37,99,235,0.2)]">
+            <div className="w-20 h-20 bg-primary-soft rounded-3xl flex-center mb-6">
               <ShieldCheck size={40} className="text-primary" />
             </div>
             <h2 className="text-4xl font-extrabold text-white mb-3 tracking-tight text-center">Bienvenido</h2>
@@ -431,11 +452,19 @@ const App = () => {
           </button>
 
           <button
+            onClick={toggleTheme}
+            className="btn-icon"
+            title={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
+          >
+            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+          </button>
+
+          <button
             onClick={handleLogout}
-            className="w-12 h-12 glass glass-interactive rounded-full flex-center text-red-400 hover:text-white hover:bg-red-500 transition-all border border-red-500/30 group"
+            className="btn-icon-danger"
             title="Cerrar Sesión"
           >
-            <LogOut size={20} className="group-hover:scale-110 transition-transform" />
+            <LogOut size={20} />
           </button>
         </div>
       </header>
@@ -735,7 +764,7 @@ const App = () => {
                   </td>
                   <td className="whitespace-nowrap">
                     <span className={`status-badge ${String(item?.status || "").toLowerCase()}`}>
-                      <div className={`w-1.5 h-1.5 rounded-full ${String(item?.status || "").toLowerCase() === 'pendiente' ? 'bg-[#fb7185]' : 'bg-[#34d399]'}`} />
+                      <div className="w-1.5 h-1.5 rounded-full" style={{ background: 'currentColor' }} />
                       {item?.status || 'N/A'}
                     </span>
                   </td>

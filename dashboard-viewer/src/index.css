@@ -1,19 +1,52 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap');
 
-:root {
-  --primary: #6366f1;
-  --primary-glow: rgba(99, 102, 241, 0.3);
-  --secondary: #ec4899;
-  --accent: #10b981;
-  --background: #0b0f1a;
-  --surface: rgba(255, 255, 255, 0.03);
-  --surface-hover: rgba(255, 255, 255, 0.07);
-  --border: rgba(255, 255, 255, 0.08);
-  --text-main: #f8fafc;
+/* ===== Tema oscuro (por defecto) ===== */
+:root,
+:root[data-theme="dark"] {
+  --primary: #3b82f6;
+  --primary-hover: #2563eb;
+  --primary-soft: rgba(59, 130, 246, 0.15);
+  --primary-glow: rgba(59, 130, 246, 0.30);
+  --secondary: #0ea5e9;
+  --accent: #22c55e;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #f87171;
+  --danger-soft: rgba(248, 113, 113, 0.12);
+
+  --background: #0f172a;
+  --surface: rgba(255, 255, 255, 0.04);
+  --surface-hover: rgba(255, 255, 255, 0.08);
+  --border: rgba(255, 255, 255, 0.10);
+  --text-main: #f1f5f9;
   --text-dim: #94a3b8;
   --text-dark: #64748b;
-  --shadow-subtle: 0 4px 12px rgba(0, 0, 0, 0.1);
-  --shadow-premium: 0 20px 40px rgba(0, 0, 0, 0.4);
+  --shadow-subtle: 0 4px 12px rgba(0, 0, 0, 0.25);
+  --shadow-premium: 0 20px 40px rgba(0, 0, 0, 0.45);
+}
+
+/* ===== Tema claro ===== */
+:root[data-theme="light"] {
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-soft: rgba(37, 99, 235, 0.10);
+  --primary-glow: rgba(37, 99, 235, 0.20);
+  --secondary: #0284c7;
+  --accent: #16a34a;
+  --success: #16a34a;
+  --warning: #d97706;
+  --danger: #dc2626;
+  --danger-soft: rgba(220, 38, 38, 0.10);
+
+  --background: #f1f5f9;
+  --surface: rgba(255, 255, 255, 0.75);
+  --surface-hover: #ffffff;
+  --border: rgba(15, 23, 42, 0.12);
+  --text-main: #0f172a;
+  --text-dim: #475569;
+  --text-dark: #64748b;
+  --shadow-subtle: 0 4px 12px rgba(15, 23, 42, 0.06);
+  --shadow-premium: 0 20px 40px rgba(15, 23, 42, 0.12);
 }
 
 * {
@@ -29,6 +62,16 @@ body {
   min-height: 100vh;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.glass,
+.btn-primary,
+.btn-secondary,
+.premium-input,
+.modal-input,
+.status-badge {
+  transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
 /* Base Glassmorphism */
@@ -187,15 +230,22 @@ body {
 }
 
 .status-badge.pendiente {
-  background: rgba(244, 63, 94, 0.15);
-  color: #fb7185;
-  border: 1px solid rgba(244, 63, 94, 0.2);
+  background: color-mix(in srgb, var(--danger) 15%, transparent);
+  color: var(--danger);
+  border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent);
 }
 
-.status-badge.procesados {
-  background: rgba(16, 185, 129, 0.15);
-  color: #34d399;
-  border: 1px solid rgba(16, 185, 129, 0.2);
+.status-badge.procesados,
+.status-badge.procesado {
+  background: color-mix(in srgb, var(--success) 15%, transparent);
+  color: var(--success);
+  border: 1px solid color-mix(in srgb, var(--success) 30%, transparent);
+}
+
+.status-badge.mal {
+  background: color-mix(in srgb, var(--warning) 15%, transparent);
+  color: var(--warning);
+  border: 1px solid color-mix(in srgb, var(--warning) 30%, transparent);
 }
 
 .btn-primary {
@@ -579,4 +629,111 @@ textarea.modal-input {
   justify-content: flex-end;
   gap: 0.75rem;
   margin-top: 2rem;
+}
+
+/* ===== Utilidades de color (mapeadas a variables de tema) ===== */
+.text-primary { color: var(--primary); }
+.text-accent { color: var(--accent); }
+.text-success { color: var(--success); }
+.text-warning { color: var(--warning); }
+.text-danger,
+.text-red-400 { color: var(--danger); }
+.text-text-main { color: var(--text-main); }
+.text-text-dim { color: var(--text-dim); }
+.text-text-dark { color: var(--text-dark); }
+.bg-primary-soft { background: var(--primary-soft); }
+.bg-white-5 { background: var(--surface); }
+
+/* Punto de color de origen (Lista 1 / Lista 2) */
+.dot-secondary { background: var(--secondary); }
+.dot-accent { background: var(--accent); }
+
+/* ===== Botones de ícono circulares ===== */
+.btn-icon {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-icon:hover {
+  background: var(--surface-hover);
+  color: var(--text-main);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-subtle);
+}
+
+.btn-icon-danger {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--danger-soft);
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent);
+  color: var(--danger);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-icon-danger:hover {
+  background: var(--danger);
+  color: #fff;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-subtle);
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 900px) {
+  .filter-bar {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+    padding: 1.5rem;
+  }
+  .filter-bar .flex.items-center.gap-6 {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+  .premium-input { width: 100%; }
+}
+
+@media (max-width: 768px) {
+  .dashboard-container { padding: 1.5rem 1rem; }
+
+  /* Header apilado */
+  header.flex.justify-between {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1.5rem;
+  }
+  header .flex.items-center.gap-4 {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+  .connection-status { display: none; }
+
+  h1.text-5xl { font-size: 2.25rem; }
+
+  /* Cabecera de la tabla apilada */
+  .premium-table th, .premium-table td { padding: 0.75rem 1rem; }
+  .grid-auto { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 480px) {
+  .dashboard-container { padding: 1rem 0.75rem; }
+  h1.text-5xl { font-size: 1.75rem; }
+  .modal-card { padding: 1.5rem; max-width: 100%; }
+  .btn-primary, .btn-secondary { padding: 0.7rem 1rem; font-size: 0.85rem; }
+  .premium-table th:nth-child(2),
+  .premium-table td:nth-child(2) { display: none; } /* ocultar 'Origen' en pantallas muy chicas */
 }
