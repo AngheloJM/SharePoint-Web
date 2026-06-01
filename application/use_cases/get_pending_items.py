@@ -19,7 +19,7 @@ class GetPendingItemsUseCase:
         )
         list1_select = (
             "Title,eServicio,eRetencionEfectiva,eTipoGestion,eFormularioPendiente,"
-            "eDeudaPendiente,eRegularizadoCompleto,eBajaRealizada,Created"
+            "eDeudaPendiente,eRegularizadoCompleto,eBajaRealizada,Created,nLineaCodigoHogar"
         )
 
         list2_filter = "fields/Title ne null"

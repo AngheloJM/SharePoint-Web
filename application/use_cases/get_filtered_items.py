@@ -48,7 +48,7 @@ class GetFilteredItemsUseCase:
         list1_select = (
             "Title,eServicio,eRetencionEfectiva,eTipoGestion,eFormularioPendiente,"
             "eDeudaPendiente,eRegularizadoCompleto,eBajaRealizada,eTipoBaja,eEstado,Created,Modified,"
-            "nLineaContacto,sLineaContacto"
+            "nLineaCodigoHogar"
         )
         list2_select = "Title,BajaRealizada,TipodeBaja,Created,Modified"
 

@@ -24,7 +24,8 @@ class GenerateReportUseCase:
         # Solo traemos campos necesarios
         list1_select = (
             "Title,eServicio,eRetencionEfectiva,eTipoGestion,eFormularioPendiente,"
-            "eDeudaPendiente,eRegularizadoCompleto,eBajaRealizada,Created,Modified,dFechaFormRegularizado"
+            "eDeudaPendiente,eRegularizadoCompleto,eBajaRealizada,Created,Modified,dFechaFormRegularizado,"
+            "nLineaCodigoHogar"
         )
         # Filtro: Solo items que sean móviles o que ya tengan algún estado de baja
         # (Para no traer los ~80k registros irrelevantes)

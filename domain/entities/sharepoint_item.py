@@ -35,10 +35,10 @@ class SharePointItem:
     @property
     def phone_number(self) -> str:
         fields = self.raw_fields
-        # Priorizar nLineaContacto y sLineaContacto para Lista 1
-        # Para Lista 2 (Migración), el número suele estar en Title.
-        val = fields.get("nLineaContacto") or fields.get("sLineaContacto") or fields.get("Title")
-        
+        # Lista 1 (Gestión Baja): la línea está en nLineaCodigoHogar (igual que script_lista1.py).
+        # Lista 2 (Migración): el número suele estar en Title.
+        val = fields.get("nLineaCodigoHogar") or fields.get("Title")
+
         if val is None:
             return "N/A"
             
@@ -72,19 +72,22 @@ class SharePointItem:
     def es_pendiente(self) -> bool:
         fields = self.raw_fields
         if self.source_list == "gestion_baja":
-            # Filtro estricto por proceso (List 1)
-            tipo = self.tipo_baja_display
-            if tipo != "Cambio de Post Pago a Pre Pago R":
+            # Réplica exacta de la lógica de filtrado de script_lista1.py.
+            # La línea (nLineaCodigoHogar) debe existir y ser numérica.
+            linea = fields.get("nLineaCodigoHogar")
+            if not (linea is not None and str(linea).strip().isdigit()):
                 return False
 
             return (
                 fields.get("eServicio") in ("Móvil", "Móvil B2B") and
                 fields.get("eRetencionEfectiva") == "NO" and
                 fields.get("eTipoGestion") == "Se deriva para Baja" and
+                # El script exige eBajaRealizada is None; en Graph un texto vacío
+                # puede llegar como "" o ausente, así que cubrimos ambos.
+                fields.get("eBajaRealizada") in (None, "") and
                 fields.get("eFormularioPendiente") == "Formulario Regularizado" and
                 fields.get("eDeudaPendiente") == "Sin Deuda" and
-                fields.get("eRegularizadoCompleto") == "Se deriva para RPA" and
-                self.estado_baja in (None, "", "None", "pendiente", "Pendiente")
+                fields.get("eRegularizadoCompleto") == "Se deriva para RPA"
             )
         elif self.source_list == "migracion_post_pre":
             title = fields.get("Title")
