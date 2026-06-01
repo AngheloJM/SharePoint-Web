@@ -724,21 +724,21 @@ const App = () => {
       {/* Modal de Edición de Gestión */}
       {editingItem && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm animate-in"
+          className="modal-overlay"
           onClick={() => !savingEdit && setEditingItem(null)}
         >
           <div
-            className="glass w-full max-w-lg p-10 relative overflow-hidden"
+            className="glass modal-card animate-in"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Encabezado */}
-            <div className="flex justify-between items-start mb-8">
+            <div className="modal-header">
               <div>
                 <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    <Pencil className="text-primary w-4 h-4" />
+                  <div className="p-2 bg-primary rounded-lg flex-center">
+                    <Pencil size={16} className="text-white" />
                   </div>
-                  <h2 className="text-2xl font-bold text-white">Editar Gestión</h2>
+                  <h2 className="modal-title">Editar Gestión</h2>
                 </div>
                 <p className="text-text-dim text-xs">
                   ID {(editingItem?.id?.split?.(',')?.pop?.()) || editingItem?.id} · Celular {editingItem?.phone_number || 'N/A'}
@@ -746,7 +746,7 @@ const App = () => {
               </div>
               <button
                 onClick={() => !savingEdit && setEditingItem(null)}
-                className="w-10 h-10 glass glass-interactive rounded-full flex-center text-text-dark hover:text-white transition-all"
+                className="modal-close"
                 title="Cerrar"
               >
                 <X size={18} />
@@ -757,34 +757,30 @@ const App = () => {
             <div className="space-y-6">
               <div className="date-input-group">
                 <label>Baja Realizada</label>
-                <div className="premium-input-container">
-                  <select
-                    value={editForm.eBajaRealizada}
-                    onChange={(e) => setEditForm({ ...editForm, eBajaRealizada: e.target.value })}
-                    className="premium-input cursor-pointer bg-transparent"
-                  >
-                    <option value="">— Sin definir —</option>
-                    {BAJA_OPCIONES.map((o) => (
-                      <option key={o} value={o}>{o}</option>
-                    ))}
-                  </select>
-                </div>
+                <select
+                  value={editForm.eBajaRealizada}
+                  onChange={(e) => setEditForm({ ...editForm, eBajaRealizada: e.target.value })}
+                  className="modal-input"
+                >
+                  <option value="">— Sin definir —</option>
+                  {BAJA_OPCIONES.map((o) => (
+                    <option key={o} value={o}>{o}</option>
+                  ))}
+                </select>
               </div>
 
               <div className="date-input-group">
                 <label>Deuda Pendiente</label>
-                <div className="premium-input-container">
-                  <select
-                    value={editForm.eDeudaPendiente}
-                    onChange={(e) => setEditForm({ ...editForm, eDeudaPendiente: e.target.value })}
-                    className="premium-input cursor-pointer bg-transparent"
-                  >
-                    <option value="">— Sin definir —</option>
-                    {DEUDA_OPCIONES.map((o) => (
-                      <option key={o} value={o}>{o}</option>
-                    ))}
-                  </select>
-                </div>
+                <select
+                  value={editForm.eDeudaPendiente}
+                  onChange={(e) => setEditForm({ ...editForm, eDeudaPendiente: e.target.value })}
+                  className="modal-input"
+                >
+                  <option value="">— Sin definir —</option>
+                  {DEUDA_OPCIONES.map((o) => (
+                    <option key={o} value={o}>{o}</option>
+                  ))}
+                </select>
               </div>
 
               <div className="date-input-group">
@@ -794,38 +790,38 @@ const App = () => {
                   onChange={(e) => setEditForm({ ...editForm, Observaciones: e.target.value })}
                   rows={3}
                   placeholder="Notas, motivo, deuda, errores u otra observación de la línea..."
-                  className="premium-input w-full !py-3 resize-none"
+                  className="modal-input"
                 />
               </div>
             </div>
 
             {/* Error */}
             {editError && (
-              <div className="mt-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-xs flex items-center gap-3">
-                <AlertTriangle size={16} className="shrink-0" />
+              <div className="modal-error">
+                <AlertTriangle size={16} />
                 {editError}
               </div>
             )}
 
             {/* Acciones */}
-            <div className="flex justify-end gap-3 mt-8">
+            <div className="modal-actions">
               <button
                 onClick={() => setEditingItem(null)}
                 disabled={savingEdit}
-                className="btn-secondary h-12 px-6 disabled:opacity-40"
+                className="btn-secondary px-6"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleSaveEdit}
                 disabled={savingEdit}
-                className="btn-primary h-12 px-8 min-w-[160px]"
+                className="btn-primary px-8"
               >
                 {savingEdit ? (
                   <RefreshCw className="animate-spin w-5 h-5" />
                 ) : (
                   <>
-                    <Save className="w-4 h-4" />
+                    <Save size={16} />
                     <span className="font-bold">Guardar</span>
                   </>
                 )}
