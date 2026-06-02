@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { RefreshCw, Clock, Database, ChevronRight, LayoutDashboard, ListTodo, Calendar, Filter, HardDrive, Search, ArrowUp, ArrowDown, LogOut, Lock, User, ShieldCheck, Pencil, X, Save, AlertTriangle, FileSearch, CheckCircle2, Sun, Moon } from 'lucide-react';
+import { RefreshCw, Clock, Database, ChevronRight, LayoutDashboard, ListTodo, Calendar, Filter, HardDrive, Search, ArrowUp, ArrowDown, LogOut, Lock, User, ShieldCheck, Pencil, X, Save, AlertTriangle, FileSearch, CheckCircle2, Sun, Moon, UploadCloud, FileSpreadsheet } from 'lucide-react';
 
 // Valores válidos (confirmados contra las columnas de SharePoint vía Graph)
 const BAJA_OPCIONES = ['Baja Procesada', 'Baja Observada', 'Baja Desestimada', 'Baja Realizada por Otro Canal'];
@@ -66,6 +66,15 @@ const App = () => {
   const [diagLoading, setDiagLoading] = useState(false);
   const [diagError, setDiagError] = useState(null);
   const [diagSearched, setDiagSearched] = useState(false);
+
+  // Carga masiva desde Excel
+  const [showCarga, setShowCarga] = useState(false);
+  const [cargaFileName, setCargaFileName] = useState('');
+  const [cargaPreview, setCargaPreview] = useState(null);
+  const [cargaLoading, setCargaLoading] = useState(false);
+  const [cargaError, setCargaError] = useState(null);
+  const [cargaResult, setCargaResult] = useState(null);
+  const [cargaApplying, setCargaApplying] = useState(false);
 
   // API Configuration
   const BASE_URL = import.meta.env.VITE_API_URL || '';
@@ -331,6 +340,69 @@ const App = () => {
     setDiagSearched(false);
   };
 
+  const openCarga = () => {
+    setShowCarga(true);
+    setCargaFileName('');
+    setCargaPreview(null);
+    setCargaError(null);
+    setCargaResult(null);
+  };
+
+  const handleCargaFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCargaFileName(file.name);
+    setCargaPreview(null);
+    setCargaResult(null);
+    setCargaError(null);
+    setCargaLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await fetch(`${BASE_URL}/carga-masiva/preview`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData,
+      });
+      if (response.status === 401) { handleLogout(); throw new Error('Sesión expirada.'); }
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.detail || 'No se pudo leer el archivo.');
+      }
+      setCargaPreview(await response.json());
+    } catch (err) {
+      setCargaError(err.message);
+    } finally {
+      setCargaLoading(false);
+    }
+  };
+
+  const handleCargaAplicar = async () => {
+    if (!cargaPreview) return;
+    const rows = cargaPreview.rows.filter((r) => !r.ignorada);
+    if (rows.length === 0) return;
+    setCargaApplying(true);
+    setCargaError(null);
+    try {
+      const response = await fetch(`${BASE_URL}/carga-masiva/aplicar`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rows }),
+      });
+      if (response.status === 401) { handleLogout(); throw new Error('Sesión expirada.'); }
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.detail || 'No se pudieron aplicar los cambios.');
+      }
+      setCargaResult(await response.json());
+      await fetchItems(true);
+    } catch (err) {
+      setCargaError(err.message);
+    } finally {
+      setCargaApplying(false);
+    }
+  };
+
   // Pagination Logic
   const totalPages = Math.ceil(filteredAndSortedItems.length / pageSize);
   const paginatedItems = filteredAndSortedItems.slice(
@@ -442,6 +514,15 @@ const App = () => {
              </div>
           </div>
           
+          <button
+            onClick={openCarga}
+            className="btn-secondary h-12 px-6"
+            title="Cargar un Excel con líneas procesadas y marcarlas en lote"
+          >
+            <UploadCloud className="w-4 h-4" />
+            <span>Cargar Excel</span>
+          </button>
+
           <button
             onClick={openDiag}
             className="btn-secondary h-12 px-6"
@@ -947,6 +1028,155 @@ const App = () => {
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Carga Masiva desde Excel */}
+      {showCarga && (
+        <div className="modal-overlay" onClick={() => !cargaApplying && setShowCarga(false)}>
+          <div className="glass modal-card animate-in" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="p-2 bg-primary rounded-lg flex-center">
+                    <UploadCloud size={16} className="text-white" />
+                  </div>
+                  <h2 className="modal-title">Cargar Excel de Gestiones</h2>
+                </div>
+                <p className="text-text-dim text-xs">
+                  El archivo debe tener las columnas <b>ID</b> y <b>Estado</b>. PROCESADO marca "Baja
+                  Procesada"; otros estados marcan "Baja Observada" con el texto en Observaciones.
+                </p>
+              </div>
+              <button onClick={() => !cargaApplying && setShowCarga(false)} className="modal-close" title="Cerrar">
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Selector de archivo */}
+            {!cargaResult && (
+              <label className="btn-secondary px-6" style={{ cursor: 'pointer', display: 'inline-flex', width: 'fit-content' }}>
+                <FileSpreadsheet size={16} />
+                <span>{cargaFileName || 'Seleccionar archivo (.xlsx / .csv)'}</span>
+                <input
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  onChange={handleCargaFile}
+                  style={{ display: 'none' }}
+                  disabled={cargaLoading || cargaApplying}
+                />
+              </label>
+            )}
+
+            {cargaLoading && (
+              <div className="flex items-center gap-3 text-text-dim text-sm mt-6">
+                <RefreshCw className="animate-spin w-5 h-5" /> Leyendo archivo...
+              </div>
+            )}
+
+            {cargaError && (
+              <div className="modal-error">
+                <AlertTriangle size={16} />
+                {cargaError}
+              </div>
+            )}
+
+            {/* Errores de parseo */}
+            {cargaPreview?.errores?.length > 0 && (
+              <div className="modal-error" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                {cargaPreview.errores.map((er, i) => <div key={i}>{er}</div>)}
+              </div>
+            )}
+
+            {/* Preview */}
+            {cargaPreview && !cargaResult && cargaPreview.rows.length > 0 && (
+              <div className="mt-6">
+                <div className="flex items-center gap-3 mb-4" style={{ flexWrap: 'wrap' }}>
+                  <span className="status-badge procesado">{cargaPreview.resumen.procesar} a Procesada</span>
+                  <span className="status-badge mal">{cargaPreview.resumen.observar} a Observada</span>
+                  <span className="status-badge" style={{ background: 'var(--surface)', color: 'var(--text-dim)', border: '1px solid var(--border)' }}>
+                    {cargaPreview.resumen.ignoradas} ignoradas
+                  </span>
+                </div>
+
+                <div style={{ maxHeight: '40vh', overflowY: 'auto' }}>
+                  <table className="premium-table">
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>Línea</th>
+                        <th>Estado (Excel)</th>
+                        <th>Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {cargaPreview.rows.map((r, i) => {
+                        const color = r.ignorada ? 'var(--text-dim)'
+                          : r.accion === 'Baja Procesada' ? 'var(--success)' : 'var(--warning)';
+                        return (
+                          <tr key={`${r.id}-${i}`} style={{ opacity: r.ignorada ? 0.5 : 1 }}>
+                            <td className="text-text-main text-xs font-bold">{r.id}</td>
+                            <td className="text-text-dim text-xs">{r.linea || '—'}</td>
+                            <td className="text-text-dim text-xs">{r.estado || '—'}</td>
+                            <td className="text-xs font-bold" style={{ color }}>{r.accion}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="modal-actions">
+                  <button onClick={() => setShowCarga(false)} className="btn-secondary px-6" disabled={cargaApplying}>
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleCargaAplicar}
+                    className="btn-primary px-8"
+                    disabled={cargaApplying || (cargaPreview.resumen.procesar + cargaPreview.resumen.observar) === 0}
+                  >
+                    {cargaApplying ? (
+                      <RefreshCw className="animate-spin w-5 h-5" />
+                    ) : (
+                      <>
+                        <Save size={16} />
+                        <span className="font-bold">
+                          Aplicar {cargaPreview.resumen.procesar + cargaPreview.resumen.observar} cambios
+                        </span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Resultado */}
+            {cargaResult && (
+              <div className="mt-6">
+                <div className="flex items-center gap-3 mb-4" style={{ flexWrap: 'wrap' }}>
+                  <span className="status-badge procesado">{cargaResult.ok} aplicadas</span>
+                  {cargaResult.fallidos > 0 && (
+                    <span className="status-badge pendiente">{cargaResult.fallidos} con error</span>
+                  )}
+                </div>
+                {cargaResult.fallidos > 0 && (
+                  <div style={{ maxHeight: '30vh', overflowY: 'auto' }} className="space-y-2">
+                    {cargaResult.detalles.filter((d) => !d.ok).map((d, i) => (
+                      <div key={i} className="flex items-start gap-2 text-xs">
+                        <AlertTriangle size={14} style={{ color: 'var(--danger)', flexShrink: 0, marginTop: '2px' }} />
+                        <span className="text-text-dim"><b className="text-text-main">ID {d.id}:</b> {d.error}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="modal-actions">
+                  <button onClick={() => setShowCarga(false)} className="btn-primary px-8">
+                    <CheckCircle2 size={16} /> <span className="font-bold">Listo</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

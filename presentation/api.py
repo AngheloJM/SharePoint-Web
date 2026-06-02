@@ -1,7 +1,7 @@
 import os
 from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
-from fastapi import FastAPI, Depends, Query, HTTPException, status
+from fastapi import FastAPI, Depends, Query, HTTPException, status, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel
@@ -14,6 +14,7 @@ from infrastructure.sharepoint.graph_sharepoint_writer import GraphSharePointWri
 from application.use_cases.get_filtered_items import GetFilteredItemsUseCase
 from application.use_cases.update_item import UpdateItemUseCase, ValidacionError
 from application.use_cases.diagnosticar_linea import DiagnosticarUseCase
+from application.use_cases.carga_masiva import parsear_excel, CargaMasivaUseCase
 from domain.ports.sharepoint_writer import SharePointPermissionError
 
 # Security Configuration
@@ -80,6 +81,9 @@ def get_writer():
 
 class UpdateItemBody(BaseModel):
     fields: Dict[str, Any]
+
+class CargaMasivaBody(BaseModel):
+    rows: List[Dict[str, Any]]
 
 @app.get("/items", dependencies=[Depends(get_current_user)])
 async def get_items(
@@ -164,6 +168,29 @@ async def diagnostico(
         ]
     except Exception as e:
         print(f"🔥 Error en diagnóstico ({q}): {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/carga-masiva/preview", dependencies=[Depends(get_current_user)])
+async def carga_masiva_preview(file: UploadFile = File(...)):
+    try:
+        content = await file.read()
+        return parsear_excel(content, file.filename or "")
+    except Exception as e:
+        print(f"🔥 Error al previsualizar carga masiva: {e}")
+        raise HTTPException(status_code=400, detail=f"No se pudo leer el archivo: {e}")
+
+@app.post("/carga-masiva/aplicar", dependencies=[Depends(get_current_user)])
+async def carga_masiva_aplicar(
+    body: CargaMasivaBody,
+    writer: GraphSharePointWriter = Depends(get_writer),
+):
+    try:
+        use_case = CargaMasivaUseCase(writer)
+        return use_case.aplicar(body.rows)
+    except SharePointPermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except Exception as e:
+        print(f"🔥 Error al aplicar carga masiva: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/health")
