@@ -10,18 +10,25 @@ from application.use_cases.update_item import UpdateItemUseCase
 ESTADOS_IGNORADOS = {"", "PENDIENTE PROCESAR"}
 # Estados que se consideran "baja procesada"
 ESTADOS_PROCESADO = {"PROCESADO", "PROCESA"}
+# Palabras clave que indican que la línea tiene deuda
+PALABRAS_DEUDA = ("DEUDA", "NO PAG", "FACTURA")
 
 
 def mapear_estado(estado: str) -> Optional[Dict[str, Any]]:
     """Traduce el 'Estado' del Excel a los campos a escribir en SharePoint.
     Devuelve None si la fila debe ignorarse."""
     e = (estado or "").strip()
-    if e.upper() in ESTADOS_IGNORADOS:
+    eu = e.upper()
+    if eu in ESTADOS_IGNORADOS:
         return None
-    if e.upper() in ESTADOS_PROCESADO:
+    if eu in ESTADOS_PROCESADO:
         return {"eBajaRealizada": "Baja Procesada"}
     # Cualquier otro estado: observada + el texto del estado como observación
-    return {"eBajaRealizada": "Baja Observada", "Observaciones": e}
+    fields = {"eBajaRealizada": "Baja Observada", "Observaciones": e}
+    # Si el estado indica deuda, marcar también Deuda Pendiente = "Con Deuda"
+    if any(k in eu for k in PALABRAS_DEUDA):
+        fields["eDeudaPendiente"] = "Con Deuda"
+    return fields
 
 
 def _norm(s: Any) -> str:
@@ -93,7 +100,7 @@ def parsear_excel(file_bytes: bytes, filename: str) -> Dict[str, Any]:
             accion = "Baja Procesada"
         else:
             observar += 1
-            accion = "Baja Observada"
+            accion = "Baja Observada" + (" + Con Deuda" if fields.get("eDeudaPendiente") else "")
 
         rows.append({
             "id": item_id,
