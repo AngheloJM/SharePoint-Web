@@ -377,9 +377,27 @@ const App = () => {
     }
   };
 
+  const descargarNoReconocidas = () => {
+    if (!cargaPreview) return;
+    const noRec = cargaPreview.rows.filter((r) => r.categoria === 'no_reconocido');
+    if (noRec.length === 0) return;
+    const escape = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const header = 'ID,Linea,Estado\n';
+    const body = noRec.map((r) => [r.id, r.linea, r.estado].map(escape).join(',')).join('\n');
+    // BOM para que Excel respete los acentos
+    const blob = new Blob(['﻿' + header + body], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'lineas_no_reconocidas.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleCargaAplicar = async () => {
     if (!cargaPreview) return;
-    const rows = cargaPreview.rows.filter((r) => !r.ignorada);
+    // Solo las filas que generan escritura (tienen campos)
+    const rows = cargaPreview.rows.filter((r) => r.fields && Object.keys(r.fields).length > 0);
     if (rows.length === 0) return;
     setCargaApplying(true);
     setCargaError(null);
@@ -1098,7 +1116,23 @@ const App = () => {
                   <span className="status-badge" style={{ background: 'var(--surface)', color: 'var(--text-dim)', border: '1px solid var(--border)' }}>
                     {cargaPreview.resumen.ignoradas} ignoradas
                   </span>
+                  {cargaPreview.resumen.no_reconocidas > 0 && (
+                    <span className="status-badge pendiente">{cargaPreview.resumen.no_reconocidas} no reconocidas</span>
+                  )}
                 </div>
+
+                {/* Alerta de no reconocidas */}
+                {cargaPreview.resumen.no_reconocidas > 0 && (
+                  <div className="modal-error" style={{ marginBottom: '1.5rem', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span className="flex items-center gap-2">
+                      <AlertTriangle size={16} />
+                      {cargaPreview.resumen.no_reconocidas} línea(s) tienen un estado no reconocido y NO se escribirán.
+                    </span>
+                    <button onClick={descargarNoReconocidas} className="btn-secondary px-4" style={{ flexShrink: 0 }}>
+                      <Database size={14} /> <span>Descargar CSV</span>
+                    </button>
+                  </div>
+                )}
 
                 <div style={{ maxHeight: '40vh', overflowY: 'auto' }}>
                   <table className="premium-table">
@@ -1112,10 +1146,15 @@ const App = () => {
                     </thead>
                     <tbody>
                       {cargaPreview.rows.map((r, i) => {
-                        const color = r.ignorada ? 'var(--text-dim)'
-                          : r.accion === 'Baja Procesada' ? 'var(--success)' : 'var(--warning)';
+                        const cat = r.categoria;
+                        const color =
+                          cat === 'procesar' ? 'var(--success)'
+                          : cat === 'observar' || cat === 'deuda' ? 'var(--warning)'
+                          : cat === 'no_reconocido' ? 'var(--danger)'
+                          : 'var(--text-dim)';
+                        const tenue = cat === 'ignorada';
                         return (
-                          <tr key={`${r.id}-${i}`} style={{ opacity: r.ignorada ? 0.5 : 1 }}>
+                          <tr key={`${r.id}-${i}`} style={{ opacity: tenue ? 0.5 : 1 }}>
                             <td className="text-text-main text-xs font-bold">{r.id}</td>
                             <td className="text-text-dim text-xs">{r.linea || '—'}</td>
                             <td className="text-text-dim text-xs">{r.estado || '—'}</td>
@@ -1159,7 +1198,22 @@ const App = () => {
                   {cargaResult.fallidos > 0 && (
                     <span className="status-badge pendiente">{cargaResult.fallidos} con error</span>
                   )}
+                  {cargaPreview?.resumen?.no_reconocidas > 0 && (
+                    <span className="status-badge pendiente">{cargaPreview.resumen.no_reconocidas} no reconocidas</span>
+                  )}
                 </div>
+
+                {cargaPreview?.resumen?.no_reconocidas > 0 && (
+                  <div className="modal-error" style={{ marginBottom: '1rem', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span className="flex items-center gap-2">
+                      <AlertTriangle size={16} />
+                      Hubo {cargaPreview.resumen.no_reconocidas} línea(s) con estado no reconocido (no escritas).
+                    </span>
+                    <button onClick={descargarNoReconocidas} className="btn-secondary px-4" style={{ flexShrink: 0 }}>
+                      <Database size={14} /> <span>Descargar CSV</span>
+                    </button>
+                  </div>
+                )}
                 {cargaResult.fallidos > 0 && (
                   <div style={{ maxHeight: '30vh', overflowY: 'auto' }} className="space-y-2">
                     {cargaResult.detalles.filter((d) => !d.ok).map((d, i) => (

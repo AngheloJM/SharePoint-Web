@@ -12,23 +12,32 @@ ESTADOS_IGNORADOS = {"", "PENDIENTE PROCESAR"}
 ESTADOS_PROCESADO = {"PROCESADO", "PROCESA"}
 # Palabras clave que indican que la línea tiene deuda
 PALABRAS_DEUDA = ("DEUDA", "NO PAG", "FACTURA")
+# Estados reconocidos como "Baja Observada" sin deuda
+ESTADOS_OBSERVA = {"LINEA EN PO"}
 
 
-def mapear_estado(estado: str) -> Optional[Dict[str, Any]]:
-    """Traduce el 'Estado' del Excel a los campos a escribir en SharePoint.
-    Devuelve None si la fila debe ignorarse."""
+def clasificar_estado(estado: str):
+    """Clasifica el 'Estado' del Excel. Devuelve (categoria, fields) donde
+    categoria ∈ {procesar, observar, deuda, ignorada, no_reconocido}."""
     e = (estado or "").strip()
     eu = e.upper()
     if eu in ESTADOS_IGNORADOS:
-        return None
+        return ("ignorada", {})
     if eu in ESTADOS_PROCESADO:
-        return {"eBajaRealizada": "Baja Procesada"}
-    # Cualquier otro estado: observada + el texto del estado como observación
-    fields = {"eBajaRealizada": "Baja Observada", "Observaciones": e}
-    # Si el estado indica deuda, marcar también Deuda Pendiente = "Con Deuda"
+        return ("procesar", {"eBajaRealizada": "Baja Procesada"})
+    # Deuda primero (cubre "OBSERVADO COMO DEUDA PENDIENTE")
     if any(k in eu for k in PALABRAS_DEUDA):
-        fields["eDeudaPendiente"] = "Con Deuda"
-    return fields
+        return ("deuda", {"eBajaRealizada": "Baja Observada", "Observaciones": e, "eDeudaPendiente": "Con Deuda"})
+    if eu in ESTADOS_OBSERVA or eu.startswith("OBSERVAD"):
+        return ("observar", {"eBajaRealizada": "Baja Observada", "Observaciones": e})
+    # Estado fuera de la lista reconocida
+    return ("no_reconocido", {})
+
+
+def mapear_estado(estado: str) -> Optional[Dict[str, Any]]:
+    """Compatibilidad: devuelve los campos a escribir, o None si no se escribe."""
+    categoria, fields = clasificar_estado(estado)
+    return fields if categoria in ("procesar", "observar", "deuda") else None
 
 
 def _norm(s: Any) -> str:
@@ -71,7 +80,7 @@ def parsear_excel(file_bytes: bytes, filename: str) -> Dict[str, Any]:
 
     rows = []
     errores = []
-    procesar = observar = ignoradas = 0
+    procesar = observar = ignoradas = no_reconocidas = 0
 
     for _, fila in df.iterrows():
         raw_id = fila.get(col_id)
@@ -91,24 +100,30 @@ def parsear_excel(file_bytes: bytes, filename: str) -> Dict[str, Any]:
         if linea.endswith(".0"):
             linea = linea[:-2]
 
-        fields = mapear_estado(estado)
-        if fields is None:
-            ignoradas += 1
-            accion = "Sin acción (ignorada)"
-        elif fields.get("eBajaRealizada") == "Baja Procesada":
+        categoria, fields = clasificar_estado(estado)
+        if categoria == "procesar":
             procesar += 1
             accion = "Baja Procesada"
-        else:
+        elif categoria == "deuda":
             observar += 1
-            accion = "Baja Observada" + (" + Con Deuda" if fields.get("eDeudaPendiente") else "")
+            accion = "Baja Observada + Con Deuda"
+        elif categoria == "observar":
+            observar += 1
+            accion = "Baja Observada"
+        elif categoria == "ignorada":
+            ignoradas += 1
+            accion = "Sin acción (ignorada)"
+        else:  # no_reconocido
+            no_reconocidas += 1
+            accion = "No reconocido"
 
         rows.append({
             "id": item_id,
             "linea": linea,
             "estado": estado,
             "accion": accion,
-            "fields": fields or {},
-            "ignorada": fields is None,
+            "fields": fields,
+            "categoria": categoria,
         })
 
     return {
@@ -117,6 +132,7 @@ def parsear_excel(file_bytes: bytes, filename: str) -> Dict[str, Any]:
             "procesar": procesar,
             "observar": observar,
             "ignoradas": ignoradas,
+            "no_reconocidas": no_reconocidas,
             "total": len(rows),
         },
         "errores": errores,
