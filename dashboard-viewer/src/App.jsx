@@ -1113,6 +1113,11 @@ const App = () => {
                 <div className="flex items-center gap-3 mb-4" style={{ flexWrap: 'wrap' }}>
                   <span className="status-badge procesado">{cargaPreview.resumen.procesar} a Procesada</span>
                   <span className="status-badge mal">{cargaPreview.resumen.observar} a Observada</span>
+                  {cargaPreview.resumen.desestimar > 0 && (
+                    <span className="status-badge" style={{ background: 'var(--primary-soft)', color: 'var(--primary)', border: '1px solid var(--border)' }}>
+                      {cargaPreview.resumen.desestimar} a Desestimada
+                    </span>
+                  )}
                   <span className="status-badge" style={{ background: 'var(--surface)', color: 'var(--text-dim)', border: '1px solid var(--border)' }}>
                     {cargaPreview.resumen.ignoradas} ignoradas
                   </span>
@@ -1150,6 +1155,7 @@ const App = () => {
                         const color =
                           cat === 'procesar' ? 'var(--success)'
                           : cat === 'observar' || cat === 'deuda' ? 'var(--warning)'
+                          : cat === 'desestimar' ? 'var(--primary)'
                           : cat === 'no_reconocido' ? 'var(--danger)'
                           : 'var(--text-dim)';
                         const tenue = cat === 'ignorada';
@@ -1173,7 +1179,7 @@ const App = () => {
                   <button
                     onClick={handleCargaAplicar}
                     className="btn-primary px-8"
-                    disabled={cargaApplying || (cargaPreview.resumen.procesar + cargaPreview.resumen.observar) === 0}
+                    disabled={cargaApplying || (cargaPreview.resumen.procesar + cargaPreview.resumen.observar + (cargaPreview.resumen.desestimar || 0)) === 0}
                   >
                     {cargaApplying ? (
                       <RefreshCw className="animate-spin w-5 h-5" />
@@ -1181,7 +1187,7 @@ const App = () => {
                       <>
                         <Save size={16} />
                         <span className="font-bold">
-                          Aplicar {cargaPreview.resumen.procesar + cargaPreview.resumen.observar} cambios
+                          Aplicar {cargaPreview.resumen.procesar + cargaPreview.resumen.observar + (cargaPreview.resumen.desestimar || 0)} cambios
                         </span>
                       </>
                     )}

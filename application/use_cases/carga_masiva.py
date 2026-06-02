@@ -12,13 +12,16 @@ ESTADOS_IGNORADOS = {"", "PENDIENTE PROCESAR"}
 ESTADOS_PROCESADO = {"PROCESADO", "PROCESA"}
 # Palabras clave que indican que la línea tiene deuda
 PALABRAS_DEUDA = ("DEUDA", "NO PAG", "FACTURA")
-# Estados reconocidos como "Baja Observada" sin deuda
-ESTADOS_OBSERVA = {"LINEA EN PO"}
+
+
+def _es_portout(eu: str) -> bool:
+    # "LINEA EN PO", "LINEA REALIZO PORT OUT", "PORTOUT", "PORT OUT", "PO"
+    return "PORTOUT" in eu or "PORT OUT" in eu or "EN PO" in eu or eu == "PO"
 
 
 def clasificar_estado(estado: str):
     """Clasifica el 'Estado' del Excel. Devuelve (categoria, fields) donde
-    categoria ∈ {procesar, observar, deuda, ignorada, no_reconocido}."""
+    categoria ∈ {procesar, observar, deuda, desestimar, ignorada, no_reconocido}."""
     e = (estado or "").strip()
     eu = e.upper()
     if eu in ESTADOS_IGNORADOS:
@@ -28,7 +31,10 @@ def clasificar_estado(estado: str):
     # Deuda primero (cubre "OBSERVADO COMO DEUDA PENDIENTE")
     if any(k in eu for k in PALABRAS_DEUDA):
         return ("deuda", {"eBajaRealizada": "Baja Observada", "Observaciones": e, "eDeudaPendiente": "Con Deuda"})
-    if eu in ESTADOS_OBSERVA or eu.startswith("OBSERVAD"):
+    # Port Out: la línea ya no es nuestra -> baja desestimada
+    if _es_portout(eu):
+        return ("desestimar", {"eBajaRealizada": "Baja Desestimada", "Observaciones": e or "Línea realizó Port Out"})
+    if eu.startswith("OBSERVAD"):
         return ("observar", {"eBajaRealizada": "Baja Observada", "Observaciones": e})
     # Estado fuera de la lista reconocida
     return ("no_reconocido", {})
@@ -37,7 +43,7 @@ def clasificar_estado(estado: str):
 def mapear_estado(estado: str) -> Optional[Dict[str, Any]]:
     """Compatibilidad: devuelve los campos a escribir, o None si no se escribe."""
     categoria, fields = clasificar_estado(estado)
-    return fields if categoria in ("procesar", "observar", "deuda") else None
+    return fields if categoria in ("procesar", "observar", "deuda", "desestimar") else None
 
 
 def _norm(s: Any) -> str:
@@ -80,7 +86,7 @@ def parsear_excel(file_bytes: bytes, filename: str) -> Dict[str, Any]:
 
     rows = []
     errores = []
-    procesar = observar = ignoradas = no_reconocidas = 0
+    procesar = observar = desestimar = ignoradas = no_reconocidas = 0
 
     for _, fila in df.iterrows():
         raw_id = fila.get(col_id)
@@ -110,6 +116,9 @@ def parsear_excel(file_bytes: bytes, filename: str) -> Dict[str, Any]:
         elif categoria == "observar":
             observar += 1
             accion = "Baja Observada"
+        elif categoria == "desestimar":
+            desestimar += 1
+            accion = "Baja Desestimada (Port Out)"
         elif categoria == "ignorada":
             ignoradas += 1
             accion = "Sin acción (ignorada)"
@@ -131,6 +140,7 @@ def parsear_excel(file_bytes: bytes, filename: str) -> Dict[str, Any]:
         "resumen": {
             "procesar": procesar,
             "observar": observar,
+            "desestimar": desestimar,
             "ignoradas": ignoradas,
             "no_reconocidas": no_reconocidas,
             "total": len(rows),
