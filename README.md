@@ -1,67 +1,117 @@
 # SharePoint Reporting Dashboard
 
-Este proyecto es un dashboard moderno para visualizar y gestionar datos de SharePoint, diseñado con una arquitectura limpia y una interfaz premium.
+Dashboard web para **visualizar y gestionar** las líneas de baja/migración registradas en
+SharePoint (vía Microsoft Graph). Permite consultar pendientes/procesados, **editar** el resultado
+de cada gestión, **diagnosticar** una línea por ID o número, y hacer **carga masiva** desde Excel.
 
-## 📁 Estructura del Proyecto
+> 📖 ¿Eres usuario final (sin conocimientos técnicos)? Ve directo al
+> **[Manual de Usuario](docs/MANUAL_USUARIO.md)** y a la **[Guía de Estados](docs/GUIA_ESTADOS.md)**.
 
-- **application/**: Contiene la lógica de negocio (Casos de Uso).
-- **domain/**: Entidades y reglas de negocio del núcleo.
-- **infrastructure/**: Implementaciones técnicas (SharePoint API, Auth, etc.).
+## 📁 Estructura del proyecto (arquitectura hexagonal)
+
+- **domain/**: entidades y reglas de negocio del núcleo (`SharePointItem`, puertos).
+- **application/**: casos de uso (filtrar, actualizar, diagnosticar, carga masiva).
+- **infrastructure/**: implementaciones técnicas (Microsoft Graph: lectura/escritura, auth).
 - **presentation/**: API REST (FastAPI).
-- **dashboard-viewer/**: Frontend (React + Vite).
-- **scripts/**: Herramientas de utilidad para inspeccionar listas y esquemas.
+- **dashboard-viewer/**: frontend (React + Vite).
+- **scripts/**: utilidades para inspeccionar listas y esquemas de SharePoint.
+- **docs/**: documentación de usuario, guía de estados y plantilla de carga masiva.
 
-## 🚀 Despliegue con Docker
+## ✨ Funcionalidades
 
-Este proyecto está preparado para ejecutarse con Docker, lo cual es la forma recomendada para producción (ej. Render).
+- **Consulta** de líneas por estado (Pendientes / Procesados) y rango de fechas, con filtro local
+  por Lista 1 / Lista 2 y búsqueda por ID, línea o título.
+- **Edición** (write-back a SharePoint) de Baja Realizada, Deuda Pendiente y Observaciones — solo
+  Lista 1.
+- **Diagnóstico** de una línea por ID o número: muestra su estado y, si está "mal cargada", los
+  campos del flujo que no cumplen.
+- **Carga masiva** desde Excel/CSV: marca muchas líneas a la vez con previsualización, exportación
+  de las no reconocidas a CSV y reporte de resultados. Ver **[Guía de Estados](docs/GUIA_ESTADOS.md)**.
+- **Tema claro/oscuro** (sigue el sistema, recordado por navegador) y diseño responsive.
 
-### Local con Docker Compose
+## 🔐 Autenticación
+
+Login protegido por **JWT**. El usuario ingresa credenciales (definidas en variables de entorno),
+el backend devuelve un token y el frontend lo envía en cada petición.
+
+La conexión con SharePoint usa **Microsoft Graph** con `client_credentials` (app registrada en
+Azure). Para **escribir** (edición / carga masiva) la app necesita el permiso de aplicación
+**`Sites.ReadWrite.All`** con consentimiento de administrador.
+
+## 🔍 Lógica de filtrado (Lista 1 = "Gestión Baja de Servicio Móvil u Hogar")
+
+Una línea se considera **Pendiente** cuando cumple TODO:
+
+- `eServicio` ∈ {`Móvil`, `Móvil B2B`}
+- `eRetencionEfectiva` = `NO`
+- `eTipoGestion` = `Se deriva para Baja`
+- `eBajaRealizada` vacío (aún sin baja)
+- `eFormularioPendiente` = `Formulario Regularizado`
+- `eDeudaPendiente` = `Sin Deuda`
+- `eRegularizadoCompleto` = `Se deriva para RPA`
+- `nLineaCodigoHogar` presente y numérico (es "la línea" que se muestra)
+
+Una línea **candidata** a la que le falta uno de los 3 últimos campos del flujo se clasifica como
+**"Mal cargada"** (visible en Diagnóstico). Lista 2 ("Ejecución Migración PostPago a PrePago") es
+de **solo lectura** por ahora.
+
+## ⚙️ Variables de entorno (`.env`)
+
+Copia `.env.example` a `.env` y completa:
+
+| Variable | Descripción |
+|---|---|
+| `SP_SITE_ID` | ID del sitio de SharePoint |
+| `SP_LIST_ID` | ID de la Lista 1 (Gestión) |
+| `SP_LIST_ID_2` | ID de la Lista 2 (Migración) |
+| `TENANT_ID`, `CLIENT_ID`, `CLIENT_SECRET` | Credenciales de la app de Azure |
+| `GRAPH_SCOPE` | `https://graph.microsoft.com/.default` |
+| `JWT_SECRET_KEY` | Frase secreta para firmar los tokens de sesión |
+| `DASHBOARD_USER`, `DASHBOARD_PASSWORD` | Credenciales del login del dashboard |
+| `ALLOWED_ORIGINS` | URL(s) del frontend permitidas (CORS), separadas por coma |
+
+## 💻 Correr en local
+
+**Backend** (Python 3.11+):
+
+```bash
+pip install -r requirements.txt
+uvicorn presentation.api:app --reload --port 8000
+```
+
+**Frontend** (Node 18+):
+
+```bash
+cd dashboard-viewer
+npm install
+npm run dev
+```
+
+El frontend usa `VITE_API_URL` para apuntar al backend (en local, configúralo a
+`http://localhost:8000` o usa un proxy de Vite).
+
+### Con Docker Compose
 
 ```bash
 docker-compose up --build
 ```
 
-Esto iniciará el Backend en el puerto 8000 y el Frontend en el puerto 3000.
+Backend en el puerto 8000 y frontend en el 3000.
 
 ## 🌐 Despliegue en Render
 
-Para desplegar en Render, usa las configuraciones de Docker:
+- **Backend**: `Dockerfile.backend` de la raíz.
+- **Frontend**: `Dockerfile` dentro de `dashboard-viewer` (Context Directory = `dashboard-viewer`).
+- Configura todas las variables de entorno de arriba. En el frontend, `VITE_API_URL` debe apuntar
+  a la URL pública del backend.
 
-- **Backend**: Usa el `Dockerfile.backend` de la raíz.
-- **Frontend**: Usa el `Dockerfile` dentro de la carpeta `dashboard-viewer`. Asegúrate de configurar la "Context Directory" a `dashboard-viewer`.
+## 🛠️ Utilidades (`scripts/`)
 
-### Variables de Entorno Requeridas:
+- `list_available_lists.py`: lista todas las listas del sitio de SharePoint.
+- `inspect_list_schema.py`: muestra los campos internos y ejemplos de datos de las listas.
 
-- `DASHBOARD_USER`: Usuario para el login.
-- `DASHBOARD_PASSWORD`: Contraseña para el login.
-- `JWT_SECRET_KEY`: Una frase secreta para firmar los tokens de sesión.
-- `ALLOWED_ORIGINS`: URL de tu frontend en Render.
-- `TENANT_ID`, `CLIENT_ID`, `CLIENT_SECRET`: Credenciales de Azure/SharePoint.
-- `SP_SITE_ID`, `SP_LIST_ID`, `SP_LIST_ID_2`: IDs de SharePoint.
-
-## 🔐 Seguridad y Autenticación
-
-El sistema cuenta con un Login protegido por **JWT (JSON Web Tokens)**.
-
-1. El usuario ingresa sus credenciales en el login.
-2. El backend valida contra las variables de entorno y devuelve un token.
-3. El frontend almacena el token de forma segura y lo envía en cada petición al API.
-
-## 🔍 Lógica de Filtrado Inteligente
-
-El dashboard aplica filtros estrictos para asegurar que solo los datos relevantes para el RPA sean procesados:
-
-- **Lista 1 (Gestión)**: Solo se muestran registros cuyo tipo de proceso sea **"Cambio de Post Pago a Pre Pago R"**. Se filtran automáticamente otros procesos de migración o bajas generales.
-- **Lista 2 (Migración)**: Se muestran registros que tengan un formato de título numérico válido (número de teléfono).
-- **ID de SharePoint**: El sistema utiliza el ID técnico de SharePoint como identificador principal en la tabla para facilitar la búsqueda directa en el sitio.
-- **Prioridad de Celular**: Se extrae y limpia el número de teléfono desde los campos de contacto de SharePoint (`nLineaContacto`) para mostrarlo de forma prominente.
-
-## 🛠️ Herramientas de Utilidad
-
-En la carpeta `scripts/` encontrarás:
-
-- `list_available_lists.py`: Muestra todas las listas disponibles en el sitio de SharePoint configurado.
-- `inspect_list_schema.py`: Muestra todos los campos técnicos y ejemplos de datos de las listas principales.
+Se ejecutan con la raíz del proyecto en el `PYTHONPATH`, p. ej.:
+`PYTHONPATH=. python scripts/inspect_list_schema.py`.
 
 ---
 

@@ -26,3 +26,7 @@ npm-debug.log*
 *.xls
 *.xlsx
 *.xlsm
+
+# Excepción: plantillas de documentación sí se versionan
+!docs/plantilla_carga_masiva.csv
+!docs/plantilla_carga_masiva.xlsx
