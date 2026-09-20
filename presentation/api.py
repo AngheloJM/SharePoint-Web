@@ -1,3 +1,4 @@
+import logging
 import os
 from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
@@ -17,16 +18,47 @@ from application.use_cases.diagnosticar_linea import DiagnosticarUseCase
 from application.use_cases.carga_masiva import parsear_excel, CargaMasivaUseCase
 from domain.ports.sharepoint_writer import SharePointPermissionError
 
+logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
+logger = logging.getLogger("sharepoint_api")
+
+
+def _require_env(name: str) -> str:
+    """Lee una variable de entorno obligatoria; falla el arranque si no está definida.
+
+    Evitamos defaults como 'admin123' o una clave JWT fija en el código: si Render
+    (u otro entorno) omite la variable, preferimos que la app no arranque a que
+    quede corriendo con credenciales triviales y públicas.
+    """
+    value = os.getenv(name)
+    if not value:
+        raise RuntimeError(
+            f"Variable de entorno requerida '{name}' no está definida. "
+            "Revisa tu .env o la configuración del servicio."
+        )
+    return value
+
+
 # Security Configuration
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", "super-secret-key-for-dev")
+SECRET_KEY = _require_env("JWT_SECRET_KEY")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 # 24 hours
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
 
 # Single User Credentials (defined in Render)
-DASHBOARD_USER = os.getenv("DASHBOARD_USER", "admin")
-DASHBOARD_PASSWORD = os.getenv("DASHBOARD_PASSWORD", "admin123")
+DASHBOARD_USER = _require_env("DASHBOARD_USER")
+DASHBOARD_PASSWORD = _require_env("DASHBOARD_PASSWORD")
 
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
+_allowed_origins_raw = os.getenv("ALLOWED_ORIGINS", "")
+ALLOWED_ORIGINS = [o.strip() for o in _allowed_origins_raw.split(",") if o.strip()]
+if not ALLOWED_ORIGINS:
+    raise RuntimeError(
+        "Variable de entorno 'ALLOWED_ORIGINS' no está definida. "
+        "Especifica el/los origen(es) del frontend separados por coma (nunca '*' con credenciales)."
+    )
+if "*" in ALLOWED_ORIGINS:
+    raise RuntimeError(
+        "'ALLOWED_ORIGINS' no puede incluir '*': la API usa cookies/credenciales, "
+        "lo que además los navegadores rechazan combinado con un origen comodín."
+    )
 
 app = FastAPI(title="SharePoint Reporting API")
 
@@ -124,10 +156,9 @@ async def get_items(
                 "fields": item.raw_fields
             } for item in items
         ]
-    except Exception as e:
-        print(f"🔥 Error en API: {e}")
-        from fastapi import HTTPException
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("Error al obtener items")
+        raise HTTPException(status_code=500, detail="Error interno al obtener los items.")
 
 @app.patch("/items/{item_id}", dependencies=[Depends(get_current_user)])
 async def update_item(
@@ -143,9 +174,9 @@ async def update_item(
         raise HTTPException(status_code=400, detail=str(e))
     except SharePointPermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
-    except Exception as e:
-        print(f"🔥 Error al actualizar item {item_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("Error al actualizar item %s", item_id)
+        raise HTTPException(status_code=500, detail="Error interno al actualizar el item.")
 
 @app.get("/diagnostico", dependencies=[Depends(get_current_user)])
 async def diagnostico(
@@ -166,18 +197,21 @@ async def diagnostico(
             }
             for item in items
         ]
-    except Exception as e:
-        print(f"🔥 Error en diagnóstico ({q}): {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("Error en diagnóstico (%s)", q)
+        raise HTTPException(status_code=500, detail="Error interno al ejecutar el diagnóstico.")
 
 @app.post("/carga-masiva/preview", dependencies=[Depends(get_current_user)])
 async def carga_masiva_preview(file: UploadFile = File(...)):
     try:
         content = await file.read()
         return parsear_excel(content, file.filename or "")
-    except Exception as e:
-        print(f"🔥 Error al previsualizar carga masiva: {e}")
-        raise HTTPException(status_code=400, detail=f"No se pudo leer el archivo: {e}")
+    except Exception:
+        logger.exception("Error al previsualizar carga masiva (%s)", file.filename)
+        raise HTTPException(
+            status_code=400,
+            detail="No se pudo leer el archivo. Verifica que sea un .xlsx o .csv válido con columnas ID y Estado.",
+        )
 
 @app.post("/carga-masiva/aplicar", dependencies=[Depends(get_current_user)])
 async def carga_masiva_aplicar(
@@ -189,9 +223,9 @@ async def carga_masiva_aplicar(
         return use_case.aplicar(body.rows)
     except SharePointPermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
-    except Exception as e:
-        print(f"🔥 Error al aplicar carga masiva: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("Error al aplicar carga masiva")
+        raise HTTPException(status_code=500, detail="Error interno al aplicar la carga masiva.")
 
 @app.get("/health")
 async def health():
