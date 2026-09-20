@@ -4,15 +4,31 @@ Dashboard web para **visualizar y gestionar** las líneas de baja/migración reg
 SharePoint (vía Microsoft Graph). Permite consultar pendientes/procesados, **editar** el resultado
 de cada gestión, **diagnosticar** una línea por ID o número, y hacer **carga masiva** desde Excel.
 
-## 📁 Estructura del proyecto (arquitectura hexagonal)
+## 📁 Estructura del proyecto
 
-- **domain/**: entidades y reglas de negocio del núcleo (`SharePointItem`, puertos).
-- **application/**: casos de uso (filtrar, actualizar, diagnosticar, carga masiva).
-- **infrastructure/**: implementaciones técnicas (Microsoft Graph: lectura/escritura, auth).
-- **presentation/**: API REST (FastAPI).
-- **dashboard-viewer/**: frontend (React + Vite).
-- **scripts/**: utilidades para inspeccionar listas y esquemas de SharePoint.
-- **tests/**: pruebas unitarias (pytest) de las reglas de negocio.
+Son **dos aplicaciones independientes** en el mismo repo: una API REST (backend) y un SPA que le
+pega por HTTP (frontend). Cada una tiene su propia arquitectura interna:
+
+```
+backend/                   API REST (FastAPI) — arquitectura hexagonal
+  domain/                  entidades y reglas de negocio del núcleo (SharePointItem, puertos)
+  application/             casos de uso (filtrar, actualizar, diagnosticar, carga masiva)
+  infrastructure/          implementaciones técnicas (Microsoft Graph: lectura/escritura, auth)
+  presentation/            api.py — los endpoints HTTP
+  scripts/                 utilidades para inspeccionar listas y esquemas de SharePoint
+  tests/                   pruebas unitarias (pytest) de las reglas de negocio
+
+frontend/                  SPA (React + Vite) — arquitectura por features
+  src/api/                 cliente HTTP único (auth, manejo de sesión expirada, errores)
+  src/components/ui/       piezas de UI compartidas (Modal accesible, StatCard, etc.)
+  src/components/layout/   Header, Footer
+  src/features/            una carpeta por capacidad: auth, items, edit-item, diagnostico,
+                            carga-masiva — cada una con su hook de estado y sus componentes
+  src/App.jsx              compone las features, sin lógica de negocio propia
+```
+
+El backend no sabe nada del frontend: solo expone JSON. El frontend solo conoce la URL del backend
+(`VITE_API_URL`) y le habla por `fetch`.
 
 ## ✨ Funcionalidades
 
@@ -55,7 +71,7 @@ de **solo lectura** por ahora.
 ## 📋 Reglas de clasificación de "Estado" en carga masiva
 
 Al subir un Excel/CSV en **Cargar Excel**, el sistema lee la columna **Estado** de cada fila y
-decide qué escribir en SharePoint (ver `application/use_cases/carga_masiva.py::clasificar_estado`).
+decide qué escribir en SharePoint (ver `backend/application/use_cases/carga_masiva.py::clasificar_estado`).
 La comparación no distingue mayúsculas/minúsculas ni espacios extra. **El orden importa**: si un
 estado encaja en varias reglas, gana la de más arriba (por eso `OBSERVADO COMO DEUDA PENDIENTE` se
 trata como Deuda, no como Observada simple).
@@ -96,6 +112,7 @@ Copia `.env.example` a `.env` y completa:
 **Backend** (Python 3.11+):
 
 ```bash
+cd backend
 pip install -r requirements.txt
 uvicorn presentation.api:app --reload --port 8000
 ```
@@ -103,7 +120,7 @@ uvicorn presentation.api:app --reload --port 8000
 **Frontend** (Node 18+):
 
 ```bash
-cd dashboard-viewer
+cd frontend
 npm install
 npm run dev
 ```
@@ -121,36 +138,41 @@ Backend en el puerto 8000 y frontend en el 3000.
 
 ## 🌐 Despliegue en Render
 
-- **Backend**: `Dockerfile.backend` de la raíz.
-- **Frontend**: `Dockerfile` dentro de `dashboard-viewer` (Context Directory = `dashboard-viewer`).
+- **Backend**: `backend/Dockerfile` (Root/Context Directory = `backend`).
+- **Frontend**: `frontend/Dockerfile` (Root/Context Directory = `frontend`).
 - Configura todas las variables de entorno de arriba. En el frontend, `VITE_API_URL` debe apuntar
   a la URL pública del backend.
+
+> Si vienes de la estructura anterior (todo en la raíz + `dashboard-viewer/`), actualiza el Root
+> Directory de ambos servicios en Render a `backend` y `frontend` respectivamente.
 
 ## ✅ Pruebas y calidad
 
 **Backend**:
 
 ```bash
+cd backend
 pip install -r requirements-dev.txt
 ruff check .        # lint
 pytest               # tests unitarios (tests/)
 ```
 
 Los tests cubren las reglas de negocio más sensibles: la clasificación de "Estado" en carga masiva
-(`tests/test_carga_masiva.py`) y las reglas de candidatura/pendiente/mal cargada de `SharePointItem`
-(`tests/test_sharepoint_item.py`). Un cambio en esas reglas debe venir acompañado de un test.
+(`backend/tests/test_carga_masiva.py`) y las reglas de candidatura/pendiente/mal cargada de
+`SharePointItem` (`backend/tests/test_sharepoint_item.py`). Un cambio en esas reglas debe venir
+acompañado de un test.
 
-**Frontend**: `cd dashboard-viewer && npm run build` valida que el bundle compile sin errores.
+**Frontend**: `cd frontend && npm run build` valida que el bundle compile sin errores.
 
 Ambos se ejecutan automáticamente en GitHub Actions en cada push/PR a `master`
 (`.github/workflows/ci.yml`).
 
-## 🛠️ Utilidades (`scripts/`)
+## 🛠️ Utilidades (`backend/scripts/`)
 
 - `list_available_lists.py`: lista todas las listas del sitio de SharePoint.
 - `inspect_list_schema.py`: muestra los campos internos y ejemplos de datos de las listas.
 
-Se ejecutan con la raíz del proyecto en el `PYTHONPATH`, p. ej.:
+Se ejecutan con `backend/` como raíz en el `PYTHONPATH`, p. ej. (desde `backend/`):
 `PYTHONPATH=. python scripts/inspect_list_schema.py`.
 
 ---

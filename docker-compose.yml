@@ -3,12 +3,12 @@ version: '3.8'
 services:
   backend:
     build:
-      context: .
-      dockerfile: Dockerfile.backend
+      context: ./backend
+      dockerfile: Dockerfile
     ports:
       - "8000:8000"
     volumes:
-      - .:/app
+      - ./backend:/app
     environment:
       - SP_SITE_ID=${SP_SITE_ID}
       - SP_LIST_ID=${SP_LIST_ID}
@@ -20,7 +20,7 @@ services:
 
   frontend:
     build:
-      context: ./dashboard-viewer
+      context: ./frontend
       dockerfile: Dockerfile
     ports:
       - "3000:80"
