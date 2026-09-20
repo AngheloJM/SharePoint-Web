@@ -63,16 +63,16 @@ export default function Modal({ title, icon, subtitle, onClose, closeDisabled, c
         ref={cardRef}
       >
         <div className="modal-header">
-          <div>
+          <div style={{ minWidth: 0 }}>
             <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 bg-primary rounded-lg flex-center">{icon}</div>
+              <div className="p-2 bg-primary rounded-lg flex-center shrink-0">{icon}</div>
               <h2 className="modal-title">{title}</h2>
             </div>
             {subtitle && <p className="text-text-dim text-xs">{subtitle}</p>}
           </div>
           <button
             onClick={() => !closeDisabled && onClose()}
-            className="modal-close"
+            className="modal-close shrink-0"
             title="Cerrar"
             aria-label="Cerrar diálogo"
           >

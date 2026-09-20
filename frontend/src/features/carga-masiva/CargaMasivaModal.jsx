@@ -40,8 +40,8 @@ function CargaPreview({ preview, applying, onDescargarNoReconocidas, onAplicar, 
         </div>
       )}
 
-      <div style={{ maxHeight: '40vh', overflowY: 'auto' }}>
-        <table className="premium-table">
+      <div style={{ maxHeight: '40vh', overflowY: 'auto', overflowX: 'auto' }}>
+        <table className="premium-table" style={{ minWidth: '480px' }}>
           <thead>
             <tr>
               <th>ID</th>

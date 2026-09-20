@@ -27,13 +27,13 @@ export default function ResultsTable({
 }) {
   return (
     <div className="glass overflow-hidden animate-in">
-      <div className="px-12 py-8 border-b border-border flex justify-between items-center bg-white-5">
-        <div className="flex items-center gap-6">
+      <div className="table-header-row px-12 py-8 border-b border-border flex justify-between items-center bg-white-5">
+        <div className="flex items-center gap-6" style={{ flexWrap: 'wrap' }}>
           <div className="flex items-center gap-3">
             <div className="p-2 bg-primary/10 rounded-lg">
               <ListTodo className="text-primary w-5 h-5" />
             </div>
-            <h2 className="text-xl font-bold text-white">Base de Datos de Gestiones</h2>
+            <h2 className="text-xl font-bold text-text-main">Base de Datos de Gestiones</h2>
           </div>
 
           {hasSearched && (
@@ -47,14 +47,14 @@ export default function ResultsTable({
                   setSearchTerm(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="premium-input !w-[300px] !py-2 !text-xs"
+                className="premium-input search-input"
                 aria-label="Buscar por ID, línea o título"
               />
             </div>
           )}
 
           {hasSearched && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2" role="group" aria-label="Filtrar por origen">
               {LIST_FILTER_OPTIONS.map((opt) => (
                 <button
                   key={opt.key}
@@ -62,9 +62,10 @@ export default function ResultsTable({
                     setListFilter(opt.key);
                     setCurrentPage(1);
                   }}
+                  aria-pressed={listFilter === opt.key}
                   className="px-4 py-1.5 rounded-full text-xs font-bold"
                   style={{
-                    background: listFilter === opt.key ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
+                    background: listFilter === opt.key ? 'var(--primary)' : 'var(--surface)',
                     color: listFilter === opt.key ? '#fff' : 'var(--text-dim)',
                     border: '1px solid var(--border)',
                     cursor: 'pointer',
@@ -80,7 +81,7 @@ export default function ResultsTable({
         </div>
 
         {hasSearched && !loading && (
-          <div className="flex items-center gap-3">
+          <div className="table-header-actions flex items-center gap-3">
             <div className="text-[10px] font-bold text-text-dark bg-white-5 px-3 py-1.5 rounded-full uppercase tracking-wider">
               {filteredAndSortedItems.length} Registros Encontrados
             </div>
@@ -101,13 +102,13 @@ export default function ResultsTable({
                   <SortIcon column="id" sortConfig={sortConfig} />
                 </div>
               </th>
-              <th className="text-left sortable-header" onClick={() => onSort('list')} style={{ width: '35%' }}>
+              <th className="text-left sortable-header" onClick={() => onSort('list')} style={{ width: '27%' }}>
                 <div className="flex items-center gap-2">
                   Origen
                   <SortIcon column="list" sortConfig={sortConfig} />
                 </div>
               </th>
-              <th className="text-left sortable-header" onClick={() => onSort('created')} style={{ width: '15%' }}>
+              <th className="text-left sortable-header" onClick={() => onSort('created')} style={{ width: '13%' }}>
                 <div className="flex items-center gap-2">
                   Fecha
                   <SortIcon column="created" sortConfig={sortConfig} />
@@ -122,7 +123,7 @@ export default function ResultsTable({
                   <SortIcon column="status" sortConfig={sortConfig} />
                 </div>
               </th>
-              <th className="text-right" style={{ width: '15%' }}>
+              <th className="text-right" style={{ width: '10%' }}>
                 Acción
               </th>
             </tr>
@@ -132,7 +133,7 @@ export default function ResultsTable({
               paginatedItems.map((item) => (
                 <tr key={item?.id || Math.random()} className="hover:bg-white-5 transition-all group">
                   <td className="whitespace-nowrap">
-                    <div className="text-white font-bold group-hover:text-primary transition-colors text-sm">
+                    <div className="text-text-main font-bold group-hover:text-primary transition-colors text-sm">
                       {item?.id?.split?.(',')?.pop?.() || item?.id || 'N/A'}
                     </div>
                     <div className="text-[10px] text-text-dark font-mono uppercase mt-0.5 opacity-60">
@@ -160,7 +161,7 @@ export default function ResultsTable({
                     </div>
                   </td>
                   <td className="whitespace-nowrap">
-                    <div className="text-text-dim text-xs font-medium truncate max-w-[180px]" title={item?.tipo_baja || 'N/A'}>
+                    <div className="text-text-dim text-xs font-medium truncate cell-truncate" title={item?.tipo_baja || 'N/A'}>
                       {item?.tipo_baja || 'N/A'}
                     </div>
                   </td>
@@ -226,14 +227,16 @@ export default function ResultsTable({
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="btn-secondary px-4 py-2 rounded-lg text-xs font-bold border border-border disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/5 transition-all text-white"
+              className="btn-secondary px-4 rounded-lg text-xs font-bold border border-border disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/5 transition-all"
+              style={{ minHeight: 44 }}
             >
               Anterior
             </button>
             <button
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
-              className="btn-secondary px-4 py-2 rounded-lg text-xs font-bold border border-border disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/5 transition-all text-white"
+              className="btn-secondary px-4 rounded-lg text-xs font-bold border border-border disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/5 transition-all"
+              style={{ minHeight: 44 }}
             >
               Siguiente
             </button>

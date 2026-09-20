@@ -24,18 +24,26 @@ export default function FilterBar({
       <div className="filter-bar">
         <div className="date-input-group">
           <label>Estado de Gestión</label>
-          <div className="segmented-control">
-            <button onClick={() => setStatusFilter('pendiente')} className={statusFilter === 'pendiente' ? 'active' : ''}>
+          <div className="segmented-control" role="group" aria-label="Estado de gestión">
+            <button
+              onClick={() => setStatusFilter('pendiente')}
+              aria-pressed={statusFilter === 'pendiente'}
+              className={statusFilter === 'pendiente' ? 'active' : ''}
+            >
               Pendientes
             </button>
-            <button onClick={() => setStatusFilter('procesados')} className={statusFilter === 'procesados' ? 'active' : ''}>
+            <button
+              onClick={() => setStatusFilter('procesados')}
+              aria-pressed={statusFilter === 'procesados'}
+              className={statusFilter === 'procesados' ? 'active' : ''}
+            >
               Procesados
             </button>
           </div>
         </div>
 
-        <div className="flex items-center gap-6">
-          <div className="date-input-group">
+        <div className="flex items-center gap-6 date-group-row">
+          <div className="date-input-group" style={{ flex: '1 1 160px' }}>
             <label htmlFor="filter-from-date">Fecha Inicial (Desde)</label>
             <div className="premium-input-container">
               <Calendar size={16} />
@@ -50,7 +58,7 @@ export default function FilterBar({
             </div>
           </div>
 
-          <div className="date-input-group">
+          <div className="date-input-group" style={{ flex: '1 1 160px' }}>
             <label htmlFor="filter-to-date">Fecha Final (Hasta)</label>
             <div className="premium-input-container">
               <Calendar size={16} />
@@ -66,7 +74,7 @@ export default function FilterBar({
           </div>
         </div>
 
-        <div className="flex gap-3 items-end">
+        <div className="flex gap-3 items-end filter-actions-row">
           <button onClick={onClearFilters} className="btn-secondary h-12 px-6" title="Restablecer todos los filtros">
             <RefreshCw className="w-4 h-4" />
             <span>Limpiar</span>
@@ -82,7 +90,7 @@ export default function FilterBar({
             <span>Recargar</span>
           </button>
 
-          <button onClick={onSearch} className="btn-primary h-12 px-8 min-w-[170px]" disabled={loading}>
+          <button onClick={onSearch} className="btn-primary h-12 px-8 btn-search" disabled={loading}>
             {loading ? (
               <>
                 <div className="flex flex-col items-start leading-none gap-0.5">

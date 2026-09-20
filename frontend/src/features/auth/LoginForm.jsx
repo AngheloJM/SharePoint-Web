@@ -1,17 +1,18 @@
-import { RefreshCw, ShieldCheck, User, Lock, Filter } from 'lucide-react';
+import { RefreshCw, User, Lock, Filter } from 'lucide-react';
+import SwampBackground from './SwampBackground';
+import loginBgVideo from '../../assets/login-bg.mp4';
 
 export default function LoginForm({ loginData, setLoginData, loginError, loginLoading, onSubmit }) {
   return (
     <div className="dashboard-container min-h-screen flex items-center justify-center p-6">
-      <div className="bg-glow-top" />
-      <div className="bg-glow-bottom" />
+      <SwampBackground />
 
-      <div className="glass p-16 w-full max-w-md animate-in relative overflow-hidden mx-auto">
+      <div className="glass login-card w-full max-w-md animate-in relative overflow-hidden mx-auto">
         <div className="flex-center flex-col mb-12">
-          <div className="w-20 h-20 bg-primary-soft rounded-3xl flex-center mb-6">
-            <ShieldCheck size={40} className="text-primary" />
+          <div className="login-mascot-circle mb-6">
+            <video src={loginBgVideo} autoPlay loop muted playsInline />
           </div>
-          <h2 className="text-4xl font-extrabold text-white mb-3 tracking-tight text-center">Bienvenido</h2>
+          <h2 className="text-4xl font-extrabold text-text-main mb-3 tracking-tight text-center">Bienvenido</h2>
           <p className="text-text-dim text-center text-sm max-w-xs leading-relaxed mx-auto">
             Ingresa tus credenciales para acceder al Visor de Gestiones
           </p>
@@ -22,16 +23,18 @@ export default function LoginForm({ loginData, setLoginData, loginError, loginLo
             <label htmlFor="login-username" className="text-xs font-bold uppercase tracking-widest text-text-dark mb-2 block">
               Usuario
             </label>
-            <div className="premium-input-container !h-14">
+            <div className="premium-input-container h-14">
               <User size={20} className="text-text-dark ml-4" />
               <input
                 id="login-username"
                 type="text"
                 placeholder="admin"
                 required
+                autoComplete="username"
                 value={loginData.username}
                 onChange={(e) => setLoginData({ ...loginData, username: e.target.value })}
-                className="premium-input !pl-12"
+                aria-invalid={Boolean(loginError)}
+                className="premium-input pl-12"
               />
             </div>
           </div>
@@ -40,16 +43,18 @@ export default function LoginForm({ loginData, setLoginData, loginError, loginLo
             <label htmlFor="login-password" className="text-xs font-bold uppercase tracking-widest text-text-dark mb-2 block">
               Contraseña
             </label>
-            <div className="premium-input-container !h-14">
+            <div className="premium-input-container h-14">
               <Lock size={20} className="text-text-dark ml-4" />
               <input
                 id="login-password"
                 type="password"
                 placeholder="••••••••"
                 required
+                autoComplete="current-password"
                 value={loginData.password}
                 onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
-                className="premium-input !pl-12"
+                aria-invalid={Boolean(loginError)}
+                className="premium-input pl-12"
               />
             </div>
           </div>
