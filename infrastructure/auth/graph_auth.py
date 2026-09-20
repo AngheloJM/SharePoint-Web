@@ -1,7 +1,10 @@
+import logging
 import os
 import requests
 from dotenv import load_dotenv
 
+
+logger = logging.getLogger(__name__)
 load_dotenv()
 
 def get_access_token() -> str:
@@ -19,12 +22,12 @@ def get_access_token() -> str:
         "scope": scope,
     }
 
-    print("Obteniendo token de acceso...")
+    logger.info("Obteniendo token de acceso...")
     try:
         response = requests.post(url, data=data, timeout=10)
         response.raise_for_status()
-        print("Token obtenido")
+        logger.info("Token obtenido")
         return response.json()["access_token"]
     except requests.exceptions.RequestException as e:
-        print(f"❌ Error al obtener token: {e}")
+        logger.error(f"❌ Error al obtener token: {e}")
         raise

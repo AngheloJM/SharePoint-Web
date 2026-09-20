@@ -1,7 +1,10 @@
+import logging
 import os
 from domain.ports.sharepoint_reader import SharePointReader
 from domain.ports.report_writer import ReportWriter
 
+
+logger = logging.getLogger(__name__)
 class GenerateReportUseCase:
 
     def __init__(
@@ -13,7 +16,7 @@ class GenerateReportUseCase:
         self.writer = writer
 
     def execute(self) -> None:
-        print("🚀 Iniciando proceso de generación de reporte OPTIMIZADO...")
+        logger.info("🚀 Iniciando proceso de generación de reporte OPTIMIZADO...")
         
         list1_id = os.getenv("SP_LIST_ID")
         list2_id = os.getenv("SP_LIST_ID_2")
@@ -52,7 +55,7 @@ class GenerateReportUseCase:
                     select_query=list1_select
                 ))
             except Exception as e:
-                print(f"⚠️ Error optimizado en Lista 1, reintentando sin filtro: {e}")
+                logger.warning(f"⚠️ Error optimizado en Lista 1, reintentando sin filtro: {e}")
                 all_items.extend(self.reader.get_items(list1_id, "gestion_baja"))
         
         # Procesar Lista 2
@@ -65,23 +68,23 @@ class GenerateReportUseCase:
                     select_query=list2_select
                 ))
             except Exception as e:
-                print(f"⚠️ Error optimizado en Lista 2, reintentando sin filtro: {e}")
+                logger.warning(f"⚠️ Error optimizado en Lista 2, reintentando sin filtro: {e}")
                 all_items.extend(self.reader.get_items(list2_id, "formulario_baja_hogar"))
 
         if not all_items:
-            print("⚠️ No se encontraron items.")
+            logger.warning("⚠️ No se encontraron items.")
             return
 
-        print("🔍 Aplicando filtros finales en memoria...")
+        logger.info("🔍 Aplicando filtros finales en memoria...")
         pendientes = [i for i in all_items if i.es_pendiente()]
         procesados = [i for i in all_items if i.es_procesado()]
 
-        print(f"📊 Resumen Optimizado: {len(all_items)} traídos, {len(pendientes)} pendientes, {len(procesados)} procesados.")
+        logger.info(f"📊 Resumen Optimizado: {len(all_items)} traídos, {len(pendientes)} pendientes, {len(procesados)} procesados.")
 
-        print("💾 Guardando reporte Excel...")
+        logger.info("💾 Guardando reporte Excel...")
         self.writer.write(
             all_items=all_items,
             pendientes=pendientes,
             procesados=procesados,
         )
-        print("✨ Proceso OPTIMIZADO finalizado.")
+        logger.info("✨ Proceso OPTIMIZADO finalizado.")

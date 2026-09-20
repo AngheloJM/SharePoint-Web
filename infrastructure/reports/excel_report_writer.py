@@ -1,7 +1,10 @@
+import logging
 import pandas as pd
 from domain.entities.sharepoint_item import SharePointItem
 from domain.ports.report_writer import ReportWriter
 
+
+logger = logging.getLogger(__name__)
 class ExcelReportWriter(ReportWriter):
 
     def write(self, all_items, pendientes, procesados):
@@ -25,7 +28,7 @@ class ExcelReportWriter(ReportWriter):
         df_procesados = to_summary_df(procesados)
 
         with pd.ExcelWriter("reporte_sharepoint_summary.xlsx", engine="openpyxl") as writer:
-            print("📊 Generando tablas de resumen...")
+            logger.info("📊 Generando tablas de resumen...")
 
             # 1. Cantidad enviada por Lista (Resumen General)
             resumen_general = df_all.groupby("Lista").size().reset_index(name="Cantidad enviada")
@@ -48,7 +51,7 @@ class ExcelReportWriter(ReportWriter):
             # pero el usuario pidió "solamente el resumen". 
             # Por ahora solo Dashboard.
             
-            print("✨ Dashboard generado exitosamente.")
+            logger.info("✨ Dashboard generado exitosamente.")
 
         # También generamos el reporte detallado anterior por si acaso, 
         # pero con un nombre distinto, o simplemente cumplimos con el "solamente resumen"

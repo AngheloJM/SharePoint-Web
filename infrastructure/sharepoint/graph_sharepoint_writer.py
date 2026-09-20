@@ -1,3 +1,4 @@
+import logging
 import os
 import requests
 from typing import Dict, Any
@@ -6,6 +7,8 @@ from dotenv import load_dotenv
 from domain.ports.sharepoint_writer import SharePointWriter, SharePointPermissionError
 from infrastructure.auth.graph_auth import get_access_token
 
+
+logger = logging.getLogger(__name__)
 load_dotenv()
 
 
@@ -31,12 +34,12 @@ class GraphSharePointWriter(SharePointWriter):
             "Content-Type": "application/json",
         }
 
-        print(f"✏️ PATCH item {item_id} en lista {list_id}: {fields}")
+        logger.info(f"✏️ PATCH item {item_id} en lista {list_id}: {fields}")
         response = requests.patch(url, headers=headers, json=fields, timeout=30)
 
         # 403 = falta el permiso de aplicación Sites.ReadWrite.All (consentimiento admin)
         if response.status_code == 403:
-            print(f"🚫 403 al escribir: {response.text}")
+            logger.warning(f"🚫 403 al escribir: {response.text}")
             raise SharePointPermissionError(
                 "La aplicación no tiene permiso de escritura en SharePoint. "
                 "Se requiere el permiso 'Sites.ReadWrite.All' (aplicación) con "
@@ -47,9 +50,9 @@ class GraphSharePointWriter(SharePointWriter):
             response.raise_for_status()
         except requests.exceptions.RequestException as e:
             detalle = getattr(e.response, "text", "") if hasattr(e, "response") and e.response is not None else ""
-            print(f"❌ Error al escribir item {item_id}: {e} | {detalle}")
+            logger.error(f"❌ Error al escribir item {item_id}: {e} | {detalle}")
             raise
 
         data = response.json()
-        print(f"✅ Item {item_id} actualizado.")
+        logger.info(f"✅ Item {item_id} actualizado.")
         return data

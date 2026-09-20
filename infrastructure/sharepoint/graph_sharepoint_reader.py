@@ -1,3 +1,4 @@
+import logging
 import os
 import requests
 from typing import List, Optional
@@ -7,6 +8,8 @@ from domain.entities.sharepoint_item import SharePointItem
 from domain.ports.sharepoint_reader import SharePointReader
 from infrastructure.auth.graph_auth import get_access_token
 
+
+logger = logging.getLogger(__name__)
 load_dotenv()
 
 class GraphSharePointReader(SharePointReader):
@@ -52,7 +55,7 @@ class GraphSharePointReader(SharePointReader):
         page_count = 0
         while url:
             page_count += 1
-            print(f"📄 [{source_name}] Cargando página {page_count}...")
+            logger.info(f"📄 [{source_name}] Cargando página {page_count}...")
             try:
                 response = requests.get(url, headers=headers, timeout=30)
                 response.raise_for_status()
@@ -67,7 +70,7 @@ class GraphSharePointReader(SharePointReader):
                     if min_date_threshold:
                         created_val = fields.get("Created") # e.g. 2023-04-20T12:59:37Z
                         if created_val and created_val < min_date_threshold:
-                            print(f"🛑 Umbral de fecha alcanzado ({min_date_threshold}). Deteniendo descarga en {created_val}.")
+                            logger.warning(f"🛑 Umbral de fecha alcanzado ({min_date_threshold}). Deteniendo descarga en {created_val}.")
                             return items
 
                     items.append(
@@ -80,17 +83,17 @@ class GraphSharePointReader(SharePointReader):
                     )
                     
                     if len(items) >= max_items:
-                        print(f"🛑 Límite de {max_items} alcanzado.")
+                        logger.warning(f"🛑 Límite de {max_items} alcanzado.")
                         return items
 
                 url = data.get("@odata.nextLink")
             except requests.exceptions.RequestException as e:
-                print(f"❌ Error en {source_name} (página {page_count}): {e}")
+                logger.error(f"❌ Error en {source_name} (página {page_count}): {e}")
                 if hasattr(e, 'response') and e.response is not None:
-                    print(f"🔍 Detalle del error: {e.response.text}")
+                    logger.info(f"🔍 Detalle del error: {e.response.text}")
                 raise e # Re-lanzar para que el UseCase lo maneje
 
-        print(f"✅ {source_name}: {len(items)} recuperados")
+        logger.info(f"✅ {source_name}: {len(items)} recuperados")
         return items
 
     def get_item_by_id(

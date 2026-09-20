@@ -1,9 +1,12 @@
+import logging
 import os
 from typing import List
 from domain.entities.sharepoint_item import SharePointItem
 from domain.ports.sharepoint_reader import SharePointReader
 
 
+
+logger = logging.getLogger(__name__)
 class DiagnosticarUseCase:
     """Busca una línea de Lista 1 por ID o por número de línea (nLineaCodigoHogar)
     y devuelve su diagnóstico (estado y campos faltantes)."""
@@ -29,7 +32,7 @@ class DiagnosticarUseCase:
             if it:
                 encontrados[it.id] = it
         except Exception as e:
-            print(f"⚠️ Diagnóstico por ID falló: {e}")
+            logger.warning(f"⚠️ Diagnóstico por ID falló: {e}")
 
         # 2. Por número de línea (nLineaCodigoHogar es de tipo texto)
         try:
@@ -42,6 +45,6 @@ class DiagnosticarUseCase:
             for it in items:
                 encontrados[it.id] = it
         except Exception as e:
-            print(f"⚠️ Diagnóstico por línea falló: {e}")
+            logger.warning(f"⚠️ Diagnóstico por línea falló: {e}")
 
         return list(encontrados.values())

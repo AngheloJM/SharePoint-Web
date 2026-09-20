@@ -1,8 +1,11 @@
+import logging
 from typing import List
 from domain.entities.sharepoint_item import SharePointItem
 from domain.ports.sharepoint_reader import SharePointReader
 import os
 
+
+logger = logging.getLogger(__name__)
 class GetPendingItemsUseCase:
     def __init__(self, reader: SharePointReader):
         self.reader = reader
@@ -31,13 +34,13 @@ class GetPendingItemsUseCase:
                 items = self.reader.get_items(list1_id, "gestion_baja", filter_query=list1_filter, select_query=list1_select)
                 all_items.extend([i for i in items if i.es_pendiente()])
             except Exception as e:
-                print(f"Error fetching List 1: {e}")
+                logger.info(f"Error fetching List 1: {e}")
 
         if list2_id:
             try:
                 items = self.reader.get_items(list2_id, "formulario_baja_hogar", filter_query=list2_filter, select_query=list2_select)
                 all_items.extend([i for i in items if i.es_pendiente()])
             except Exception as e:
-                print(f"Error fetching List 2: {e}")
+                logger.info(f"Error fetching List 2: {e}")
 
         return all_items

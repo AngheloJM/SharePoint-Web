@@ -1,3 +1,4 @@
+import logging
 import os
 from typing import Dict, Any
 
@@ -5,6 +6,8 @@ from domain.ports.sharepoint_writer import SharePointWriter
 from application.use_cases.get_filtered_items import GetFilteredItemsUseCase
 
 
+
+logger = logging.getLogger(__name__)
 # Campos editables desde el dashboard y, para los de tipo "choice", sus valores válidos.
 # (Confirmados contra Graph /lists/{id}/columns). "Observaciones" es texto libre.
 CHOICE_VALIDOS = {
@@ -60,6 +63,6 @@ class UpdateItemUseCase:
 
         # 5. Invalidar el caché de lectura para que el dashboard refleje el cambio
         GetFilteredItemsUseCase._cache.clear()
-        print("🧹 Caché de lectura invalidado tras la edición.")
+        logger.info("🧹 Caché de lectura invalidado tras la edición.")
 
         return resultado
